@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'threatfox',
     'circl',
+    'shodanapp',
     'analyzer',
 ]
 
@@ -151,3 +152,6 @@ THREATFOX_API_URL  = 'https://threatfox-api.abuse.ch/api/v1/'
 
 # CIRCL OSINT Feed
 CIRCL_FEED_URL = 'https://www.circl.lu/doc/misp/feed-osint/'
+
+# ===== Shodan API =====
+SHODAN_API_KEY  = os.getenv('SHODAN_API_KEY', '')
