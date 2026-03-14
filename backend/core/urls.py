@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/threatfox/', include('threatfox.urls')),
     path('api/circl/', include('circl.urls')),
+    path('api/analyze/', include('analyzer.urls')),
 ]
