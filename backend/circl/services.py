@@ -243,3 +243,105 @@ class CIRCLFeedService:
                 for r in rows
             ],
         }
+    
+    def full_sync(self) -> dict:
+        """
+        Pobiera WSZYSTKIE eventy z CIRCL i zapisuje do bazy.
+        Wywołaj tylko raz — przy pierwszym uruchomieniu.
+        Kolejne aktualizacje obsługuje sync_manifest().
+
+        Pomija eventy które już są w cache — bezpieczne do
+        wielokrotnego wywołania jeśli przerwiemy w połowie.
+        """
+        # Najpierw pobierz/zaktualizuj manifest
+        manifest_result = self._get(f"{self.FEED_URL}manifest.json")
+        if not manifest_result["success"]:
+            return manifest_result
+
+        remote = manifest_result["data"]
+        all_uuids = list(remote.keys())
+
+        # Sprawdź które eventy już mamy w cache
+        conn = sqlite3.connect("cache.db")
+
+        # Zapisz nowe UUID do manifestu
+        existing_manifest = set(
+            r[0] for r in
+            conn.execute(
+                "SELECT uuid FROM circl_manifest"
+            ).fetchall()
+        )
+
+        now = datetime.now().isoformat()
+        for uuid in all_uuids:
+            if uuid not in existing_manifest:
+                meta = remote[uuid]
+                conn.execute("""
+                    INSERT OR IGNORE INTO circl_manifest
+                    (uuid, info, date, org, added_at)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    uuid,
+                    meta.get("info", ""),
+                    meta.get("date", ""),
+                    meta.get("Orgc", {}).get("name", ""),
+                    now,
+                ))
+        conn.commit()
+
+        # Sprawdź które eventy już mamy pobrane
+        existing_events = set(
+            r[0] for r in
+            conn.execute(
+                "SELECT uuid FROM circl_events"
+            ).fetchall()
+        )
+        conn.close()
+
+        # Pobierz tylko brakujące eventy
+        to_fetch = [
+            uuid for uuid in all_uuids
+            if uuid not in existing_events
+        ]
+
+        total     = len(all_uuids)
+        already   = len(existing_events)
+        to_fetch_count = len(to_fetch)
+
+        fetched   = 0
+        failed    = 0
+        failed_uuids = []
+
+        for i, uuid in enumerate(to_fetch):
+            result = self.get_event(uuid)
+
+            if result["success"]:
+                fetched += 1
+            else:
+                failed += 1
+                failed_uuids.append(uuid)
+
+            # Log postępu co 50 eventów
+            if (i + 1) % 50 == 0:
+                print(
+                    f"Postęp: {i+1}/{to_fetch_count} "
+                    f"({fetched} ok, {failed} błędów)"
+                )
+
+        # Zaktualizuj znacznik czasu manifestu
+        self._set_meta("manifest_last_checked", now)
+
+        return {
+            "success":       True,
+            "total_in_feed": total,
+            "already_cached": already,
+            "fetched_now":   fetched,
+            "failed":        failed,
+            "failed_uuids":  failed_uuids[:10],  # pierwsze 10 błędów
+            "message": (
+                f"Pobrano {fetched} nowych eventów. "
+                f"{already} było już w cache. "
+                f"{failed} błędów."
+            ),
+        }
+    

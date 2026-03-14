@@ -78,3 +78,24 @@ class ActorSearchView(APIView):
         service = CIRCLFeedService()
         result  = service.search_by_actor(actor)
         return Response({"status": "ok", **result})
+    
+
+class FullSyncView(APIView):
+    """
+    POST /api/circl/full-sync/
+
+    Pobiera WSZYSTKIE eventy z CIRCL do lokalnej bazy.
+    Wywołaj tylko raz — przy pierwszym uruchomieniu.
+    Może trwać 15-30 minut.
+    Bezpieczne do wielokrotnego wywołania — pomija już pobrane.
+    """
+    def post(self, request):
+        service = CIRCLFeedService()
+        result  = service.full_sync()
+
+        if not result["success"]:
+            return Response(
+                {"error": result["error"]},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        return Response({"status": "ok", **result})
