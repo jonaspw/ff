@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'threatfox',
+    'circl',
+    'analyzer',
 ]
 
 MIDDLEWARE = [
@@ -146,3 +148,6 @@ REST_FRAMEWORK = {
 # ===== ThreatFox API =====
 THREATFOX_API_KEY  = os.getenv('THREATFOX_API_KEY', '')
 THREATFOX_API_URL  = 'https://threatfox-api.abuse.ch/api/v1/'
+
+# CIRCL OSINT Feed
+CIRCL_FEED_URL = 'https://www.circl.lu/doc/misp/feed-osint/'
