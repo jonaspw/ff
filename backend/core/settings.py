@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'threatfox',
     'circl',
     'shodanapp',
+    'crtsh',
     'analyzer',
 ]
 
@@ -155,3 +156,6 @@ CIRCL_FEED_URL = 'https://www.circl.lu/doc/misp/feed-osint/'
 
 # ===== Shodan API =====
 SHODAN_API_KEY  = os.getenv('SHODAN_API_KEY', '')
+
+# crt.sh
+CRTSH_URL = 'https://crt.sh/'

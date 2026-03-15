@@ -6,6 +6,7 @@ import json
 from threatfox.services import ThreatFoxService
 from circl.services import CIRCLFeedService
 from shodanapp.services import ShodanService
+from crtsh.services import CrtShService
 
 
 class AnalyzerService:
@@ -14,6 +15,7 @@ class AnalyzerService:
         self.threatfox = ThreatFoxService()
         self.circl     = CIRCLFeedService()
         self.shodan    = ShodanService()
+        self.crtsh     = CrtShService()
 
     # ============================================================
     # HELPERS
@@ -70,9 +72,12 @@ class AnalyzerService:
         # Zawsze odpytujemy po IP (nawet jeśli user podał domenę)
         shodan_data = self._query_shodan(ip_for_shodan, query)
 
+        # ── crt.sh ────────────────────────────────────────────
+        crtsh_data = self._query_crtsh(query, ip_for_shodan)
+
         # ── Podsumowanie ───────────────────────────────────────
         summary = self._build_summary(
-            query, resolved_ip, tf_data, circl_data, shodan_data
+            query, resolved_ip, tf_data, circl_data, shodan_data, crtsh_data
         )
 
         return {
@@ -84,6 +89,7 @@ class AnalyzerService:
             "threatfox":    tf_data,
             "circl":        circl_data,
             "shodan":       shodan_data,
+            "crtsh":        crtsh_data, 
         }
 
     # ============================================================
@@ -235,12 +241,56 @@ class AnalyzerService:
                 "code":       result.get("code"),
             }
 
+
+    def _query_crtsh(
+        self, query: str, resolved_ip: str | None
+    ) -> dict:
+        """
+        Odpytuje crt.sh po domenie lub IP.
+        Dla domeny — subdomeny i certyfikaty.
+        Dla IP — domeny hostowane na tym IP.
+        """
+        is_ip = self._is_ip(query)
+
+        if is_ip:
+            result = self.crtsh.get_ip_certs(query)
+            if result["success"] and result.get("found"):
+                return {
+                    "found":        True,
+                    "type":         "ip",
+                    "domeny":       result.get("domeny", []),
+                    "cert_count":   result.get("count", 0),
+                    "certyfikaty":  result.get("certyfikaty", []),
+                }
+            return {
+                "found": False,
+                "type":  "ip",
+                "error": result.get("error", "Brak certyfikatów dla tego IP"),
+            }
+        else:
+            result = self.crtsh.get_domain_certs(query)
+            if result["success"] and result.get("found"):
+                return {
+                    "found":       True,
+                    "type":        "domain",
+                    "subdomeny":   result.get("subdomeny", []),
+                    "cert_count":  result.get("count", 0),
+                    "certyfikaty": result.get("certyfikaty", []),
+                    "wystawcy":    result.get("wystawcy", []),
+                }
+            return {
+                "found": False,
+                "type":  "domain",
+                "error": result.get("error", "Brak certyfikatów dla tej domeny"),
+            }
+        
+
     # ============================================================
     # PODSUMOWANIE
     # ============================================================
 
     def _build_summary(
-        self, query, resolved_ip, threatfox, circl, shodan
+        self, query, resolved_ip, threatfox, circl, shodan, crtsh
     ) -> dict:
 
         found_tf     = threatfox["found"]
@@ -312,4 +362,6 @@ class AnalyzerService:
             "total_sources":      sum([
                 found_tf, found_circl, found_shodan
             ]),
+            "subdomeny":          crtsh.get("subdomeny", []) if crtsh.get("found") else [],
+            "cert_count":         crtsh.get("cert_count", 0),
         }

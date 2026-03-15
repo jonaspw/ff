@@ -22,5 +22,6 @@ urlpatterns = [
     path('api/threatfox/', include('threatfox.urls')),
     path('api/circl/', include('circl.urls')),
     path("api/shodan/",    include("shodanapp.urls")),
+    path("api/crtsh/",     include("crtsh.urls")),
     path('api/analyze/', include('analyzer.urls')),
 ]
