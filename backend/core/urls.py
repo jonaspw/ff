@@ -23,5 +23,8 @@ urlpatterns = [
     path('api/circl/', include('circl.urls')),
     path("api/shodan/",    include("shodanapp.urls")),
     path("api/crtsh/",     include("crtsh.urls")),
+    path("api/whois/", include("whois_lookup.urls")),
+    path("api/abuseipdb/", include("abuseipdb.urls")),
+    path("api/virustotal/", include("virustotal.urls")),
     path('api/analyze/', include('analyzer.urls')),
 ]

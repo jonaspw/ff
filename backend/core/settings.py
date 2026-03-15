@@ -47,6 +47,9 @@ INSTALLED_APPS = [
     'circl',
     'shodanapp',
     'crtsh',
+    'whois_lookup',
+    'abuseipdb',
+    'virustotal',
     'analyzer',
 ]
 
@@ -159,3 +162,13 @@ SHODAN_API_KEY  = os.getenv('SHODAN_API_KEY', '')
 
 # crt.sh
 CRTSH_URL = 'https://crt.sh/'
+
+MITRE_ATTACK_FILE = os.path.join(BASE_DIR, 'mitre_data', 'enterprise-attack.json')
+
+# ===== AbuseIPDB API =====
+ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY', '')
+ABUSEIPDB_API_URL = 'https://api.abuseipdb.com/api/v2/'
+
+# ===== VirusTotal API =====
+VIRUSTOTAL_API_KEY = os.getenv('VIRUSTOTAL_API_KEY', '')
+VIRUSTOTAL_API_URL = 'https://www.virustotal.com/api/v3/'

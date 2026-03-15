@@ -35,3 +35,36 @@ class AnalyzeView(APIView):
         result  = service.analyze(query)
 
         return Response(result)
+
+
+class APTProfileView(APIView):
+    """
+    GET /api/analyze/apt/?name=APT28
+    GET /api/analyze/apt/?name=Fancy+Bear
+    GET /api/analyze/apt/?name=Lazarus
+
+    Zwraca pełny profil grupy APT:
+    MITRE ATT&CK + ThreatFox IOC + CIRCL eventy
+    """
+
+    def get(self, request):
+        name = request.query_params.get("name", "").strip()
+
+        if not name or len(name) < 2:
+            return Response(
+                {"error": "Podaj nazwę grupy APT (min. 2 znaki)"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = AnalyzerService()
+        result  = service.get_apt_profile(name)
+
+        if not result["success"]:
+            return Response(
+                {"error": result["error"],
+                 "threatfox": result.get("threatfox"),
+                 "circl":     result.get("circl")},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({"status": "ok", **result})
