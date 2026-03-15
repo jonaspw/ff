@@ -40,14 +40,14 @@ class AnalyzerService:
     }
 
     def __init__(self):
-        self.threatfox = ThreatFoxService()
-        self.circl     = CIRCLFeedService()
-        self.shodan    = ShodanService()
-        self.crtsh     = CrtShService()
-        self.whois = WhoisService()
-        self.abuseipdb = AbuseIPDBService()
+        self.threatfox  = ThreatFoxService()
+        self.circl      = CIRCLFeedService()
+        self.shodan     = ShodanService()
+        self.crtsh      = CrtShService()
+        self.whois      = WhoisService()
+        self.abuseipdb  = AbuseIPDBService()
         self.virustotal = VirusTotalService()
-        self._mitre    = None
+        self._mitre     = None
 
     # ============================================================
     # HELPERS
@@ -92,7 +92,7 @@ class AnalyzerService:
 
         summary = self._build_summary(
             query, resolved_ip, tf_data, circl_data,
-            shodan_data, crtsh_data, vt_data, abuse_data
+            shodan_data, crtsh_data, vt_data, abuse_data, whois_data
         )
 
         return {
@@ -105,9 +105,9 @@ class AnalyzerService:
             "circl":       circl_data,
             "shodan":      shodan_data,
             "crtsh":       crtsh_data,
-            "whois": whois_data,
-            "abuseipdb": abuse_data,
-            "virustotal": vt_data,
+            "whois":       whois_data,
+            "abuseipdb":   abuse_data,
+            "virustotal":  vt_data,
         }
 
     # ============================================================
@@ -283,7 +283,7 @@ class AnalyzerService:
     # ============================================================
 
     def _build_summary(
-        self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None
+        self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None, whois_data=None
     ) -> dict:
 
         found_tf     = threatfox["found"]
@@ -347,6 +347,10 @@ class AnalyzerService:
             "found_in_circl":     found_circl,
             "found_in_shodan":    found_shodan,
             "found_in_crtsh":     found_crtsh,
+            "found_in_crtsh":     found_crtsh,
+            "found_in_virustotal":found_vt,       
+            "found_in_abuseipdb": found_abuse,    
+            "found_in_whois":     whois_data.get("found", False) if whois_data else False, 
             "malware_families":   malware_families,
             "threat_types":       threat_types,
             "tags":               tags,
