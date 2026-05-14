@@ -77,15 +77,18 @@
             </div>
 
             <!-- AbuseIPDB -->
-            <div v-if="result.abuseipdb?.found" class="card section-card">
+            <div v-if="result.abuseipdb?.success" class="card section-card">
               <div class="section-header">
                 <span class="section-icon abuse"></span>
                 <span class="section-title">AbuseIPDB</span>
+                <span v-if="!result.abuseipdb.found" class="badge badge-low" style="margin-left:auto">Clean</span>
+                <template v-else>
                 <span class="mono" style="font-size:11px;margin-left:auto;color:var(--text-muted)">Score</span>
                 <div class="score-bar-wrap">
                   <div class="score-bar" :style="{ width: result.abuseipdb.abuse_score + '%', background: scoreColor(result.abuseipdb.abuse_score) }"></div>
                 </div>
                 <span class="mono score-val" :style="{ color: scoreColor(result.abuseipdb.abuse_score) }">{{ result.abuseipdb.abuse_score }}%</span>
+                </template>
               </div>
               <div class="kv-grid">
                 <div class="kv"><span class="kv-key">ISP</span><span class="kv-val mono">{{ result.abuseipdb.isp }}</span></div>
@@ -104,12 +107,20 @@
                 <span v-for="cat in result.abuseipdb.categories" :key="cat" class="badge badge-high">{{ cat }}</span>
               </div>
             </div>
+            <div v-else-if="result.abuseipdb && !result.abuseipdb.success" class="card section-card not-found">
+              <div class="section-header">
+                <span class="section-icon abuse"></span>
+                <span class="section-title">AbuseIPDB</span>
+                <span class="badge badge-low" style="margin-left:auto">Not found</span>
+              </div>
+            </div>
 
             <!-- VirusTotal -->
-            <div v-if="result.virustotal?.found" class="card section-card">
+            <div v-if="result.virustotal?.success" class="card section-card">
               <div class="section-header">
                 <span class="section-icon vt"></span>
                 <span class="section-title">VirusTotal</span>
+                <span v-if="!result.virustotal.found" class="badge badge-low" style="margin-left:auto">Clean</span>
               </div>
               <div class="vt-engines">
                 <div class="vt-bar-wrap">
@@ -143,6 +154,13 @@
                 </div>
               </div>
             </div>
+            <div v-else-if="result.virustotal && !result.virustotal.success" class="card section-card not-found">
+              <div class="section-header">
+                <span class="section-icon vt"></span>
+                <span class="section-title">VirusTotal</span>
+                <span class="badge badge-low" style="margin-left:auto">Not found</span>
+              </div>
+            </div>
 
           </div>
 
@@ -161,6 +179,13 @@
                 <div class="kv" v-if="result.whois.network_cidr"><span class="kv-key">CIDR</span><span class="kv-val mono">{{ result.whois.network_cidr }}</span></div>
                 <div class="kv" v-if="result.whois.country"><span class="kv-key">Country</span><span class="kv-val mono">{{ result.whois.country }}</span></div>
                 <div class="kv" v-if="result.whois.org"><span class="kv-key">Org</span><span class="kv-val mono">{{ result.whois.org }}</span></div>
+              </div>
+            </div>
+            <div v-else-if="result.whois && !result.whois.found" class="card section-card not-found">
+              <div class="section-header">
+                <span class="section-icon whois"></span>
+                <span class="section-title">WHOIS / BGP</span>
+                <span class="badge badge-low" style="margin-left:auto">Not found</span>
               </div>
             </div>
 
@@ -224,6 +249,13 @@
                   >{{ cve }}</a>
                 </div>
               </template>
+            </div>
+            <div v-else-if="result.shodan && !result.shodan.found" class="card section-card not-found">
+              <div class="section-header">
+                <span class="section-icon shodan"></span>
+                <span class="section-title">Shodan</span>
+                <span class="badge badge-low" style="margin-left:auto">Not found</span>
+              </div>
             </div>
 
             <!-- ThreatFox -->
