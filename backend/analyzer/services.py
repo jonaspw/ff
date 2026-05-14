@@ -282,6 +282,118 @@ class AnalyzerService:
     # PODSUMOWANIE
     # ============================================================
 
+    def calculate_risk_level(self, summary, threatfox, virustotal, shodan, crtsh, circl):
+        """
+        Wieloczynnikowy scoring ryzyka na podstawie wszystkich źródeł TI.
+        Zwraca (risk_level, risk_description).
+        """
+        score = 0
+        reasons = []
+
+        # --- ThreatFox (najsilniejszy sygnał) ---
+        if threatfox.get("found"):
+            iocs = threatfox.get("iocs", [])
+            max_confidence = max((i.get("confidence_level", 0) for i in iocs), default=0)
+            
+            score += 40
+            if max_confidence == 100:
+                score += 15
+            
+            malware = summary.get("malware_families", [])
+            if malware:
+                reasons.append(f"ThreatFox: {', '.join(malware)} (pewność: {max_confidence}%)")
+            
+            threat_types = summary.get("threat_types", [])
+            if "payload_delivery" in threat_types:
+                score += 10
+                reasons.append("aktywna dystrybucja payloadu")
+            if "c2" in threat_types or "botnet_cc" in threat_types:
+                score += 20
+                reasons.append("C2/botnet")
+
+        # --- VirusTotal ---
+        if virustotal.get("found"):
+            vt_malicious = virustotal.get("malicious", 0)
+            vt_suspicious = virustotal.get("suspicious", 0)
+            vt_reputation = virustotal.get("reputation", 0)
+            vt_total = virustotal.get("total_engines", 1)
+
+            detection_ratio = (vt_malicious + vt_suspicious) / vt_total if vt_total > 0 else 0
+
+            if vt_malicious >= 10:
+                score += 25
+            elif vt_malicious >= 5:
+                score += 15
+            elif vt_malicious >= 1:
+                score += 8
+
+            if vt_suspicious >= 3:
+                score += 5
+
+            if vt_reputation < -10:
+                score += 10
+            elif vt_reputation < 0:
+                score += 5
+
+            if vt_malicious > 0 or vt_suspicious > 0:
+                reasons.append(f"VirusTotal: {vt_malicious} malicious, {vt_suspicious} suspicious / {vt_total} silników")
+
+        # --- CIRCL (powiązania z kampaniami APT) ---
+        if circl.get("found"):
+            events_count = circl.get("events_count", 0)
+            score += 20
+            if events_count > 3:
+                score += 10
+            reasons.append(f"CIRCL: {events_count} powiązanych zdarzeń APT")
+
+        # --- Shodan (ekspozycja infrastruktury) ---
+        if shodan and shodan.get("found"):
+            open_ports = shodan.get("open_ports", [])
+            vulns = shodan.get("vulns", [])
+            score += 10
+            if vulns:
+                score += 15
+                reasons.append(f"Shodan: {len(open_ports)} portów, {len(vulns)} CVE")
+            else:
+                reasons.append(f"Shodan: ekspozycja infrastruktury ({len(open_ports)} portów)")
+
+        # --- Certyfikaty (rekonesans / phishing infra) ---
+        cert_count = summary.get("cert_count", 0)
+        if crtsh and crtsh.get("found") and cert_count > 0:
+            score += 5
+            if cert_count > 10:
+                score += 5
+                reasons.append(f"crt.sh: {cert_count} certyfikatów (rozbudowana infrastruktura)")
+            else:
+                reasons.append(f"crt.sh: {cert_count} certyfikatów")
+
+        # --- Mapowanie score → poziom ---
+        if score >= 80:
+            risk_level = "CRITICAL"
+        elif score >= 55:
+            risk_level = "HIGH"
+        elif score >= 30:
+            risk_level = "MEDIUM"
+        elif score >= 10:
+            risk_level = "LOW"
+        else:
+            risk_level = "UNKNOWN"
+
+        # --- Opis ---
+        total_sources = summary.get("total_sources", 0)
+
+        if not reasons:
+            risk_desc = "Nie znaleziono w żadnym źródle TI"
+        else:
+            primary = reasons[0]
+            if len(reasons) > 1:
+                risk_desc = f"{primary} + {len(reasons) - 1} dodatkowych sygnałów (score: {score})"
+            else:
+                risk_desc = f"{primary} (score: {score})"
+
+        return risk_level, risk_desc
+    
+
     def _build_summary(
         self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None, whois_data=None
     ) -> dict:
@@ -310,21 +422,19 @@ class AnalyzerService:
             for tag in (ioc.get("tags") or [])
         })
 
-        if found_tf and found_circl:
-            risk_level = "CRITICAL"
-            risk_desc  = "Potwierdzone zagrożenie — w ThreatFox i CIRCL"
-        elif found_tf:
-            risk_level = "HIGH"
-            risk_desc  = "Aktywne zagrożenie — znaleziono w ThreatFox"
-        elif found_circl:
-            risk_level = "MEDIUM"
-            risk_desc  = "Powiązanie z kampanią APT — znaleziono w CIRCL"
-        elif found_shodan or found_crtsh:
-            risk_level = "LOW"
-            risk_desc  = "Brak w bazach TI — znaleziono dane infrastruktury"
-        else:
-            risk_level = "UNKNOWN"
-            risk_desc  = "Nie znaleziono w żadnym źródle"
+        risk_level, risk_desc = self.calculate_risk_level(
+            {
+                "malware_families": malware_families,
+                "threat_types": threat_types,
+                "cert_count": crtsh.get("cert_count", 0),
+                "total_sources": sum([found_tf, found_circl, found_shodan, found_crtsh, found_vt, found_abuse]),
+            },
+            threatfox,
+            vt_data or {},
+            shodan,
+            crtsh,
+            circl,
+        )
 
         shodan_summary = None
         if found_shodan:
@@ -361,7 +471,7 @@ class AnalyzerService:
             "subdomeny":          crtsh.get("subdomeny", []) if found_crtsh else [],
             "cert_count":         crtsh.get("cert_count", 0),
             "total_sources":      sum([
-                found_tf, found_circl, found_shodan, found_crtsh
+                found_tf, found_circl, found_shodan, found_crtsh, found_vt, found_abuse
             ]),
         }
 

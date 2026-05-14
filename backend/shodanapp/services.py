@@ -61,7 +61,9 @@ class ShodanService:
                 "domains":      host.get("domains", []),
                 "ports":        host.get("ports", []),
                 "tags":         host.get("tags", []),
-                "vulns":        list(host.get("vulns", {}).keys()),
+                "vulns":        list(host.get("vulns", {}).keys())
+                                if isinstance(host.get("vulns"), dict)
+                                else host.get("vulns", []),
                 "last_update":  host.get("last_update", ""),
                 "certyfikaty":  certyfikaty,
                 "bannery_http": bannery,

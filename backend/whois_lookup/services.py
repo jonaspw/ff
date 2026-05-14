@@ -17,18 +17,23 @@ class WhoisService:
     def get_domain_whois(self, domain: str) -> dict:
         """
         Pobiera dane WHOIS dla domeny.
-        Zwraca: registrar, daty, nameservery, status.
         """
         try:
             w = whois.whois(domain)
 
-            # Normalizuj daty — mogą być listą lub pojedynczą wartością
+            # Jeśli whois nie zwrócił żadnych danych
+            if not w or not w.domain_name:
+                return {
+                    "success": False,
+                    "error":   f"Brak danych WHOIS dla domeny {domain}",
+                    "code":    "NOT_FOUND",
+                }
+
             def normalize_date(d):
                 if isinstance(d, list):
                     return str(d[0]) if d else None
                 return str(d) if d else None
 
-            # Normalizuj nameservery
             nameservers = w.name_servers
             if isinstance(nameservers, list):
                 nameservers = [ns.lower() for ns in nameservers]
@@ -37,43 +42,37 @@ class WhoisService:
             else:
                 nameservers = []
 
-            # Normalizuj status
             status = w.status
-            if isinstance(status, list):
-                status = status
-            elif isinstance(status, str):
+            if isinstance(status, str):
                 status = [status]
-            else:
+            elif not isinstance(status, list):
                 status = []
 
             return {
-                "success":      True,
-                "found":        True,
-                "type":         "domain",
-                "domain":       domain,
-                "registrar":    w.registrar,
-                "created":      normalize_date(w.creation_date),
-                "updated":      normalize_date(w.updated_date),
-                "expires":      normalize_date(w.expiration_date),
-                "nameservers":  nameservers,
-                "status":       status,
-                "emails":       w.emails if isinstance(w.emails, list)
-                                else [w.emails] if w.emails else [],
-                "org":          w.org,
-                "country":      w.country,
+                "success":     True,
+                "found":       True,
+                "type":        "domain",
+                "domain":      domain,
+                "registrar":   w.registrar,
+                "created":     normalize_date(w.creation_date),
+                "updated":     normalize_date(w.updated_date),
+                "expires":     normalize_date(w.expiration_date),
+                "nameservers": nameservers,
+                "status":      status,
+                "emails":      w.emails if isinstance(w.emails, list)
+                               else [w.emails] if w.emails else [],
+                "org":         w.org,
+                "country":     w.country,
             }
 
-        except whois.parser.PywhoisError:
+        except Exception:
+            # Łapiemy wszystkie wyjątki WHOIS — domenę może nie być
+            # zarejestrowana, może być subdomeną, może nie mieć WHOIS
             return {
                 "success": False,
+                "found":   False,
                 "error":   f"Brak danych WHOIS dla domeny {domain}",
                 "code":    "NOT_FOUND",
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error":   f"Błąd WHOIS: {str(e)}",
-                "code":    "ERROR",
             }
 
     def get_ip_whois(self, ip: str) -> dict:
