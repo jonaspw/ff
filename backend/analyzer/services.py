@@ -108,8 +108,13 @@ class AnalyzerService:
 
         # AbuseIPDB
         abuse_data = None
-        if is_ip:
-            abuse_data = self.abuseipdb.check_ip(query)
+        ip_for_abuse = query if is_ip else resolved_ip
+        if ip_for_abuse:
+            abuse_data = self.abuseipdb.check_ip(ip_for_abuse)
+            if abuse_data.get("success"):
+                abuse_data["queried_ip"] = ip_for_abuse
+                if not is_ip:
+                    abuse_data["resolved_from"] = query
             logger.info(f"[AbuseIPDB] found={abuse_data.get('found')} score={abuse_data.get('abuse_score')} error={abuse_data.get('error')}")
 
         # VirusTotal
@@ -229,17 +234,30 @@ class AnalyzerService:
     def _query_shodan(
         self, ip: str | None, original_query: str
     ) -> dict:
-        if ip is None:
+        """
+        Dla IP: pobiera dane hosta.
+        Dla domeny: pobiera dane DNS (wymaga planu Dev).
+        """
+        # Zapytanie domenowe
+        if not self._is_ip(original_query) and ip is None:
             return {
                 "found": False,
                 "error": f"Nie można rozwiązać domeny {original_query} na IP",
                 "code":  "DNS_ERROR",
             }
 
+        # Dane hosta po IP
+        if ip is None:
+            return {
+                "found": False,
+                "error": f"Brak IP dla {original_query}",
+                "code":  "DNS_ERROR",
+            }
+
         result = self.shodan.get_host_info(ip)
 
         if result["success"]:
-            return {
+            shodan_data = {
                 "found":        True,
                 "queried_ip":   ip,
                 "organization": result.get("organization"),
@@ -257,6 +275,19 @@ class AnalyzerService:
                 "os":           result.get("os"),
                 "last_update":  result.get("last_update"),
             }
+
+            # Jeśli zapytanie było domeną — dołącz też dane DNS
+            if not self._is_ip(original_query):
+                dns_result = self.shodan.get_domain_info(original_query)
+                if dns_result["success"]:
+                    shodan_data["dns"] = {
+                        "subdomeny":       dns_result.get("subdomeny", []),
+                        "subdomeny_count": dns_result.get("subdomeny_count", 0),
+                        "ip_adresy":       dns_result.get("ip_adresy", []),
+                        "rekordy":         dns_result.get("rekordy", {}),
+                    }
+
+            return shodan_data
 
         return {
             "found":      False,
@@ -379,13 +410,12 @@ class AnalyzerService:
 
             vt_score = min(vt_score, 20)
 
-            if vt_score > 0:
-                score += vt_score
-                reasons.append(
-                    f"VirusTotal: {vt_malicious} malicious, "
-                    f"{vt_suspicious} suspicious / {vt_total} silników "
-                    f"({detection_ratio:.0%} wykryć) [{vt_score}/20 pkt]"
-                )
+            score += vt_score
+            reasons.append(
+                f"VirusTotal: {vt_malicious} malicious, "
+                f"{vt_suspicious} suspicious / {vt_total} silników "
+                f"({detection_ratio:.0%} wykryć) [{vt_score}/20 pkt]"
+            )
 
         # ── AbuseIPDB (max 20 pkt) ─────────────────────────────
         # Bazuje na: abuse_score, total_reports, distinct_users, kategorie
@@ -435,13 +465,13 @@ class AnalyzerService:
             ab_score = min(ab_score, 20)
             print(f"[DEBUG ABUSE SCORE] ab_score={ab_score} score_przed={score}")
 
-            if ab_score > 0:
-                score += ab_score
-                print(f"[DEBUG ABUSE SCORE] score_po={score}")
-                reasons.append(
-                    f"AbuseIPDB: score {abuse_score}/100 "
-                    f"({distinct_users} zgłaszających) [{ab_score}/20 pkt]"
-                )
+            ab_score = min(ab_score, 20)
+
+            score += ab_score
+            reasons.append(
+                f"AbuseIPDB: score {abuse_score}/100 "
+                f"({distinct_users} zgłaszających) [{ab_score}/20 pkt]"
+            )
 
         # ── ThreatFox (max 20 pkt) ─────────────────────────────
         # Bazuje na: confidence_level, threat_type
@@ -527,7 +557,8 @@ class AnalyzerService:
             )
 
         # ── Shodan (max 20 pkt) ────────────────────────────────
-        # Bazuje na: vulns (CVE), porty, tagi, bannery HTTP
+        # Bazuje na: vulns (CVE), podejrzane tagi, bannery, porty C2
+        # Porty i CDN NIE są sygnałem zagrożenia — pomijamy je w scoringu
         if shodan and shodan.get("found"):
             sh_score   = 0
             open_ports = shodan.get("open_ports") or shodan.get("ports", [])
@@ -535,54 +566,48 @@ class AnalyzerService:
             tags       = shodan.get("tags", [])
             bannery    = shodan.get("bannery_http", [])
 
-            # Liczba CVE (0–12 pkt)
+            # Znane bezpieczne infrastruktury — nie dodają punktów
+            safe_tags = {"cdn", "cloud", "hosting", "isp"}
+            if safe_tags & {t.lower() for t in tags}:
+                # Jeśli jedyne tagi to cdn/cloud/hosting
+                # i nie ma CVE ani podejrzanych bannerów
+                # — Shodan jest tylko źródłem informacyjnym
+                pass
+
+            # CVE — jedyny silny sygnał z Shodan (0–15 pkt)
             if len(vulns) >= 5:
-                sh_score += 12
+                sh_score += 15
             elif len(vulns) >= 3:
-                sh_score += 9
+                sh_score += 11
             elif len(vulns) >= 1:
-                sh_score += 6
+                sh_score += 7
 
-            # Liczba otwartych portów (0–4 pkt)
-            if len(open_ports) >= 10:
-                sh_score += 4
-            elif len(open_ports) >= 5:
-                sh_score += 3
-            elif len(open_ports) >= 3:
-                sh_score += 2
-            elif len(open_ports) >= 1:
-                sh_score += 1
+            # Podejrzane tagi — złośliwa infrastruktura (0–8 pkt)
+            malicious_tags = {
+                "tor", "vpn", "proxy", "compromised",
+                "malware", "botnet"
+            }
+            matched_malicious = malicious_tags & {t.lower() for t in tags}
+            if matched_malicious:
+                sh_score += 8
 
-            # Tagi Shodan — szczególne typy infrastruktury (0–6 pkt)
-            high_risk_tags = {"tor", "vpn", "proxy", "cdn",
-                              "compromised", "malware", "botnet"}
-            medium_risk_tags = {"honeypot", "scanner", "isp"}
-
-            matched_high   = high_risk_tags   & {t.lower() for t in tags}
-            matched_medium = medium_risk_tags  & {t.lower() for t in tags}
-
-            if matched_high:
-                sh_score += 6
-            elif matched_medium:
-                sh_score += 3
-
-            # Bannery HTTP — podejrzane tytuły stron (0–3 pkt)
+            # Bannery HTTP wskazujące na złośliwą infrastrukturę (0–5 pkt)
             podejrzane_tytuly = [
-                "tor", "exit", "proxy", "vpn", "relay",
-                "router", "anonymizer", "i2p", "darknet",
+                "tor exit", "exit router", "anonymizer",
+                "i2p", "darknet", "this is a tor",
             ]
             for banner in bannery:
                 title = (banner.get("title") or "").lower()
                 if any(s in title for s in podejrzane_tytuly):
-                    sh_score += 3
+                    sh_score += 5
                     break
 
-            # Niestandardowe porty C2 (0–2 pkt)
-            # Porty często używane przez malware C2
-            c2_ports = {4444, 4445, 8443, 8080, 8888,
-                        1337, 31337, 6666, 6667, 9001, 9030}
+            # Porty C2 — tylko te naprawdę podejrzane (0–4 pkt)
+            # Usuwamy 8080 i 8443 bo są używane przez CDN
+            c2_ports = {4444, 4445, 1337, 31337,
+                        6666, 6667, 9001, 9030}
             if c2_ports & set(open_ports):
-                sh_score += 2
+                sh_score += 4
 
             sh_score = min(sh_score, 20)
             score   += sh_score
@@ -590,11 +615,12 @@ class AnalyzerService:
             opis_czesci = []
             if vulns:
                 opis_czesci.append(f"{len(vulns)} CVE")
-            if matched_high:
-                opis_czesci.append(f"tagi: {', '.join(matched_high)}")
-            elif matched_medium:
-                opis_czesci.append(f"tagi: {', '.join(matched_medium)}")
-            opis_czesci.append(f"{len(open_ports)} portów")
+            if matched_malicious:
+                opis_czesci.append(
+                    f"tagi: {', '.join(matched_malicious)}"
+                )
+            if not opis_czesci:
+                opis_czesci.append(f"{len(open_ports)} portów")
 
             reasons.append(
                 f"Shodan: {', '.join(opis_czesci)} [{sh_score}/20 pkt]"
@@ -602,19 +628,34 @@ class AnalyzerService:
 
         # ── Mapowanie score → poziom ──────────────────────────
         active_sources = 0
-        if virustotal and virustotal.get("success") and (virustotal.get("malicious", 0) > 0 or virustotal.get("suspicious", 0) > 0 or virustotal.get("success")):
+        print(f"[DEBUG ACTIVE] vt={bool(virustotal and virustotal.get('success'))} abuse={bool(abuse_data and abuse_data.get('success'))} tf={bool(threatfox.get('found'))} circl={bool(circl.get('found'))} shodan={bool(shodan and shodan.get('found'))}")
+
+        # VirusTotal — aktywne jeśli zapytanie się powiodło
+        if virustotal and virustotal.get("success"):
             active_sources += 1
+
+        # AbuseIPDB — aktywne jeśli zapytanie się powiodło
         if abuse_data and abuse_data.get("success"):
             active_sources += 1
+
+        # ThreatFox — aktywne tylko jeśli coś znalazł
         if threatfox.get("found"):
             active_sources += 1
+
+        # CIRCL — analogicznie jak ThreatFox
         if circl.get("found"):
             active_sources += 1
+
+        # Shodan — aktywne jeśli host istnieje w bazie
         if shodan and shodan.get("found"):
             active_sources += 1
 
         max_score = active_sources * 20
         ratio     = score / max_score if max_score > 0 else 0
+        print(f"[DEBUG SCORE] active={active_sources} max={max_score} score={score} ratio={ratio:.0%}")
+        print(f"[DEBUG VT] success={virustotal.get('success') if virustotal else None}")
+        print(f"[DEBUG ABUSE] success={abuse_data.get('success') if abuse_data else None}")
+        print(f"[DEBUG SHODAN] found={shodan.get('found') if shodan else None}")
 
         if ratio >= 0.75:
             risk_level = "CRITICAL"

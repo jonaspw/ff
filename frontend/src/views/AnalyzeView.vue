@@ -290,7 +290,7 @@
                 <span class="badge badge-high" style="margin-left:auto">{{ result.threatfox.count }} hits</span>
               </div>
               <div
-                v-for="ioc in result.threatfox.iocs"
+                v-for="ioc in threatfoxVisible"
                 :key="ioc.id || ioc.ioc"
                 class="tf-ioc-row"
                 @click="activeTfIoc = ioc"
@@ -311,6 +311,12 @@
                   </svg>
                 </div>
               </div>
+              <div class="pagination-row">
+                <button v-if="threatfoxLimit < result.threatfox.iocs.length" class="show-more-btn" @click="threatfoxLimit += 10">
+                  Show 10 more<span class="text-muted">(zostało {{ result.threatfox.iocs.length - threatfoxLimit }})</span>
+                </button>
+                <button v-if="threatfoxLimit > 10" class="show-more-btn" @click="threatfoxLimit = 10">Collapse</button>
+              </div>
             </div>
             <div v-else-if="result.threatfox && !result.threatfox.found" class="card section-card not-found">
               <div class="section-header">
@@ -321,11 +327,33 @@
             </div>
 
             <!-- CIRCL -->
-            <CirclEvents
-              v-if="result.circl?.found"
-              :circl-data="result.circl"
-              @open="activeCirclUuid = $event"
-            />
+            <div v-if="result.circl?.found" class="card section-card">
+              <div class="section-header">
+                <span class="section-icon circl"></span>
+                <span class="section-title">CIRCL Events</span>
+                <span class="badge badge-info" style="margin-left:auto">{{ result.circl.events_count || result.circl.count }}</span>
+              </div>
+              <div v-for="ev in circlEventsVisible" :key="ev.event_id || ev.uuid"
+                class="circl-row" @click="activeCirclUuid = ev.event_id || ev.uuid">
+                <div class="event-left">
+                  <div class="event-date mono">{{ ev.date }}</div>
+                  <div class="event-info">{{ ev.info }}</div>
+                  <div class="event-org mono">{{ ev.org }}</div>
+                </div>
+                <div class="event-right">
+                  <span class="circl-hint">IOCs</span>
+                  <svg class="circl-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="pagination-row">
+                <button v-if="circlLimit < result.circl.events.length" class="show-more-btn" @click="circlLimit += 10">
+                  Show 10 more<span class="text-muted">(zostało {{ result.circl.events.length - circlLimit }})</span>
+                </button>
+                <button v-if="circlLimit > 10" class="show-more-btn" @click="circlLimit = 10">Collapse</button>
+              </div>
+            </div>
             <div v-else-if="result.circl && !result.circl.found" class="card section-card not-found">
               <div class="section-header">
                 <span class="section-icon circl"></span>
@@ -503,6 +531,10 @@ const activeTfIoc = ref(null)
 const activeShodanCert = ref(null)
 const activeCirclUuid = ref(null)
 const crtshDomainsLimit = ref(10)
+const threatfoxLimit = ref(10)
+const circlLimit = ref(10)
+const threatfoxVisible = computed(() => result.value?.threatfox?.iocs?.slice(0, threatfoxLimit.value) ?? [])
+const circlEventsVisible = computed(() => result.value?.circl?.events?.slice(0, circlLimit.value) ?? [])
 const subdomainsLimit = ref(20)
 const subdomainsVisible = computed(
   () => result.value?.summary?.subdomeny?.slice(0, subdomainsLimit.value) ?? []
@@ -518,8 +550,8 @@ const sourcesFound = computed(() => {
   if (!result.value?.summary) return {}
   const s = result.value.summary
   return {
-    VirusTotal: s.found_in_virustotal,
-    AbuseIPDB: s.found_in_abuseipdb,
+    VirusTotal: result.value?.virustotal?.success ?? s.found_in_virustotal,
+    AbuseIPDB: result.value?.abuseipdb?.success ?? s.found_in_abuseipdb,
     ThreatFox: s.found_in_threatfox,
     CIRCL: s.found_in_circl,
     WHOIS: s.found_in_whois,
@@ -560,6 +592,8 @@ async function runAnalysis() {
   completedSrc.value = []
   crtshDomainsLimit.value = 10
   crtshCertsLimit.value = 10
+  threatfoxLimit.value = 10
+  circlLimit.value = 10
 
   const srcInterval = setInterval(() => {
     const remaining = loadingSources.filter(s => !completedSrc.value.includes(s))
@@ -603,6 +637,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.pagination-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.circl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 8px; border-radius: 6px; border-bottom: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+.circl-row:last-child { border-bottom: none; }
+.circl-row:hover { background: rgba(159, 122, 234, 0.06); border-bottom-color: transparent; }
+.circl-row:hover .circl-arrow { color: var(--accent-purple); transform: translateX(2px); }
+.circl-row:hover .circl-hint { opacity: 1; }
+.circl-arrow { color: var(--text-muted); transition: all 0.15s; }
+.circl-hint { font-family: var(--font-mono); font-size: 10px; color: var(--accent-purple); opacity: 0; transition: opacity 0.15s; text-transform: uppercase; letter-spacing: 0.06em; }
+
 .analyze-page { padding: 32px 0 80px; }
 .page-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 

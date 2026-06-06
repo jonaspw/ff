@@ -46,3 +46,35 @@ class ShodanHostView(APIView):
             "status": "ok",
             **result,
         })
+    
+
+class ShodanDomainView(APIView):
+    """
+    GET /api/shodan/domain/?domain=update-service.net
+
+    Zwraca dane DNS dla domeny z Shodan:
+    subdomeny, rekordy A/MX/NS/TXT, IP.
+    Wymaga planu Dev — zużywa 1 query credit.
+    """
+
+    def get(self, request):
+        domain = request.query_params.get("domain", "").strip()
+
+        if not domain:
+            return Response(
+                {"error": "Podaj domenę"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = ShodanService()
+        result  = service.get_domain_info(domain)
+
+        if not result["success"]:
+            return Response(
+                {"error": result["error"]},
+                status=status.HTTP_404_NOT_FOUND
+                if result.get("code") == "NOT_FOUND"
+                else status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        return Response({"status": "ok", **result})
