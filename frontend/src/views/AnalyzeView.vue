@@ -313,7 +313,7 @@
               </div>
               <div class="pagination-row">
                 <button v-if="threatfoxLimit < result.threatfox.iocs.length" class="show-more-btn" @click="threatfoxLimit += 10">
-                  Show 10 more<span class="text-muted">(zostało {{ result.threatfox.iocs.length - threatfoxLimit }})</span>
+                  Show 10 more <span class="text-muted">(left {{ result.threatfox.iocs.length - threatfoxLimit }})</span>
                 </button>
                 <button v-if="threatfoxLimit > 10" class="show-more-btn" @click="threatfoxLimit = 10">Collapse</button>
               </div>
@@ -349,7 +349,7 @@
               </div>
               <div class="pagination-row">
                 <button v-if="circlLimit < result.circl.events.length" class="show-more-btn" @click="circlLimit += 10">
-                  Show 10 more<span class="text-muted">(zostało {{ result.circl.events.length - circlLimit }})</span>
+                  Show 10 more <span class="text-muted">(left {{ result.circl.events.length - circlLimit }})</span>
                 </button>
                 <button v-if="circlLimit > 10" class="show-more-btn" @click="circlLimit = 10">Collapse</button>
               </div>

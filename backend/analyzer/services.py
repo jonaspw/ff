@@ -413,8 +413,8 @@ class AnalyzerService:
             score += vt_score
             reasons.append(
                 f"VirusTotal: {vt_malicious} malicious, "
-                f"{vt_suspicious} suspicious / {vt_total} silników "
-                f"({detection_ratio:.0%} wykryć) [{vt_score}/20 pkt]"
+                f"{vt_suspicious} suspicious / {vt_total} engines "
+                f"({detection_ratio:.0%} detect) [{vt_score}/20 pkt]"
             )
 
         # ── AbuseIPDB (max 20 pkt) ─────────────────────────────
@@ -470,7 +470,7 @@ class AnalyzerService:
             score += ab_score
             reasons.append(
                 f"AbuseIPDB: score {abuse_score}/100 "
-                f"({distinct_users} zgłaszających) [{ab_score}/20 pkt]"
+                f"({distinct_users} reporters) [{ab_score}/20 pkt]"
             )
 
         # ── ThreatFox (max 20 pkt) ─────────────────────────────
@@ -509,12 +509,12 @@ class AnalyzerService:
             if "c2" in threat_types or "botnet_cc" in threat_types:
                 reasons.append(
                     f"ThreatFox: C2/botnet — {label} "
-                    f"(pewność: {max_confidence}%) [{tf_score}/20 pkt]"
+                    f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
                 )
             else:
                 reasons.append(
                     f"ThreatFox: {label} "
-                    f"(pewność: {max_confidence}%) [{tf_score}/20 pkt]"
+                    f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
                 )
 
         # ── CIRCL (max 20 pkt) ─────────────────────────────────
@@ -553,7 +553,7 @@ class AnalyzerService:
             ci_score = min(ci_score, 20)
             score   += ci_score
             reasons.append(
-                f"CIRCL: {events_count} zdarzeń APT [{ci_score}/20 pkt]"
+                f"CIRCL: {events_count} APT events [{ci_score}/20 pkt]"
             )
 
         # ── Shodan (max 20 pkt) ────────────────────────────────
@@ -620,7 +620,7 @@ class AnalyzerService:
                     f"tagi: {', '.join(matched_malicious)}"
                 )
             if not opis_czesci:
-                opis_czesci.append(f"{len(open_ports)} portów")
+                opis_czesci.append(f"{len(open_ports)} ports")
 
             reasons.append(
                 f"Shodan: {', '.join(opis_czesci)} [{sh_score}/20 pkt]"
