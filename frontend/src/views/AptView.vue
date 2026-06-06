@@ -60,25 +60,6 @@
         <AptDetail :data="result" />
       </div>
 
-      <!-- Empty state with examples -->
-      <div v-else class="apt-examples">
-        <div class="examples-title mono">TRACKED ACTORS (EXAMPLES)</div>
-        <div class="examples-grid">
-          <div v-for="ex in examples" :key="ex.name"
-            class="example-card card" @click="quickSearch(ex.name)">
-            <div class="example-top">
-              <span class="example-flag">{{ ex.flag }}</span>
-              <span class="example-name">{{ ex.name }}</span>
-              <span class="badge" :class="`badge-${ex.risk}`">{{ ex.risk.toUpperCase() }}</span>
-            </div>
-            <div class="example-alias">{{ ex.alias }}</div>
-            <div class="example-desc">{{ ex.desc }}</div>
-            <div class="example-tactics">
-              <span v-for="t in ex.tactics" :key="t" class="badge badge-neutral">{{ t }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </div>
   </div>

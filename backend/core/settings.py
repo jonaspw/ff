@@ -172,7 +172,3 @@ ABUSEIPDB_API_URL = 'https://api.abuseipdb.com/api/v2/'
 # ===== VirusTotal API =====
 VIRUSTOTAL_API_KEY = os.getenv('VIRUSTOTAL_API_KEY', '')
 VIRUSTOTAL_API_URL = 'https://www.virustotal.com/api/v3/'
-
-# Validin
-VALIDIN_API_KEY = os.getenv('VALIDIN_API_KEY', '')
-VALIDIN_API_URL = 'https://app.validin.com/api/axon'

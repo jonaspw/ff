@@ -31,10 +31,6 @@
         </router-link>
       </nav>
 
-      <div class="header-status">
-        <span class="status-dot"></span>
-        <span class="mono" style="font-size: 11px; color: var(--text-secondary);">LIVE</span>
-      </div>
     </div>
   </header>
 </template>

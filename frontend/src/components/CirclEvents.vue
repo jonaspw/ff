@@ -9,9 +9,9 @@
     <div class="events-list">
       <div
         v-for="ev in events"
-        :key="ev.uuid"
+        :key="ev.event_id || ev.uuid"
         class="event-row"
-        @click="openModal(ev.uuid)"
+        @click="handleClick(ev.event_id || ev.uuid)"
         title="Click to view IOCs"
       >
         <div class="event-left">
@@ -32,17 +32,10 @@
       + {{ hiddenCount }} more events not shown
     </div>
   </div>
-
-  <CirclEventModal
-    v-if="activeUuid"
-    :uuid="activeUuid"
-    @close="activeUuid = null"
-  />
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import CirclEventModal from './CirclEventModal.vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   circlData: { type: Object, required: true },
@@ -50,14 +43,16 @@ const props = defineProps({
   maxEvents: { type: Number, default: 10 },
 })
 
-const activeUuid = ref(null)
+const emit = defineEmits(['open'])
 
 const totalCount = computed(() => props.circlData?.count ?? props.circlData?.events_count ?? 0)
 const events = computed(() => (props.circlData?.events || []).slice(0, props.maxEvents))
 const hiddenCount = computed(() => totalCount.value - events.value.length)
 
-function openModal(uuid) {
-  activeUuid.value = uuid
+function handleClick(uuid) {
+  console.log('[CirclEvents] kliknięto, uuid:', uuid)
+  emit('open', uuid)
+  console.log('[CirclEvents] emit wysłany')
 }
 </script>
 
@@ -81,29 +76,18 @@ function openModal(uuid) {
   cursor: pointer; transition: all 0.15s;
 }
 .event-row:last-child { border-bottom: none; }
-.event-row:hover {
-  background: rgba(159, 122, 234, 0.06);
-  border-bottom-color: transparent;
-  border-radius: 6px;
-}
+.event-row:hover { background: rgba(159, 122, 234, 0.06); border-bottom-color: transparent; }
 .event-row:hover .event-arrow { color: var(--accent-purple); transform: translateX(2px); }
 .event-row:hover .event-hint { opacity: 1; }
-.event-row:hover + .event-row { border-top-color: transparent; }
 
 .event-left { flex: 1; min-width: 0; }
 .event-date { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
 .event-info { font-size: 12px; color: var(--text-primary); line-height: 1.4; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .event-org { font-size: 10px; color: var(--accent-cyan); }
 
-.event-right {
-  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
-}
+.event-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .event-arrow { color: var(--text-muted); transition: all 0.15s; }
-.event-hint {
-  font-family: var(--font-mono); font-size: 10px;
-  color: var(--accent-purple); opacity: 0; transition: opacity 0.15s;
-  text-transform: uppercase; letter-spacing: 0.06em;
-}
+.event-hint { font-family: var(--font-mono); font-size: 10px; color: var(--accent-purple); opacity: 0; transition: opacity 0.15s; text-transform: uppercase; letter-spacing: 0.06em; }
 
 .more-hint { font-size: 11px; color: var(--text-muted); margin-top: 10px; font-style: italic; padding: 0 8px; }
 

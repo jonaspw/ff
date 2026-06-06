@@ -72,28 +72,56 @@ class AnalyzerService:
     # ============================================================
 
     def analyze(self, query: str) -> dict:
+        import logging
+        logger = logging.getLogger(__name__)
+
         is_ip       = self._is_ip(query)
         resolved_ip = None
 
         if not is_ip:
             resolved_ip = self._resolve_domain(query)
+            logger.info(f"[ANALYZE] Domena {query} → IP {resolved_ip}")
 
         ip_for_shodan = query if is_ip else resolved_ip
 
-        tf_data     = self._query_threatfox(query, resolved_ip)
-        circl_data  = self._query_circl(query, resolved_ip)
+        logger.info(f"[ANALYZE] Start analizy: {query} (typ: {'ip' if is_ip else 'domain'})")
+
+        # ThreatFox
+        tf_data = self._query_threatfox(query, resolved_ip)
+        logger.info(f"[ThreatFox] found={tf_data['found']} count={tf_data['count']}")
+
+        # CIRCL
+        circl_data = self._query_circl(query, resolved_ip)
+        logger.info(f"[CIRCL] found={circl_data['found']} events={circl_data['events_count']}")
+
+        # Shodan
         shodan_data = self._query_shodan(ip_for_shodan, query)
-        crtsh_data  = self._query_crtsh(query, ip_for_shodan)
+        logger.info(f"[Shodan] found={shodan_data.get('found')} error={shodan_data.get('error')}")
+
+        # crt.sh
+        crtsh_data = self._query_crtsh(query, ip_for_shodan)
+        logger.info(f"[crt.sh] found={crtsh_data.get('found')} error={crtsh_data.get('error')}")
+
+        # WHOIS
         whois_data = self.whois.lookup(query)
+        logger.info(f"[WHOIS] found={whois_data.get('found')} error={whois_data.get('error')}")
+
+        # AbuseIPDB
         abuse_data = None
         if is_ip:
             abuse_data = self.abuseipdb.check_ip(query)
+            logger.info(f"[AbuseIPDB] found={abuse_data.get('found')} score={abuse_data.get('abuse_score')} error={abuse_data.get('error')}")
+
+        # VirusTotal
         vt_data = self.virustotal.lookup(query)
+        logger.info(f"[VirusTotal] found={vt_data.get('found')} malicious={vt_data.get('malicious')} error={vt_data.get('error')}")
 
         summary = self._build_summary(
             query, resolved_ip, tf_data, circl_data,
             shodan_data, crtsh_data, vt_data, abuse_data, whois_data
         )
+
+        logger.info(f"[ANALYZE] Koniec: risk={summary.get('risk_level')} sources={summary.get('total_sources')}")
 
         return {
             "success":     True,
@@ -282,121 +310,337 @@ class AnalyzerService:
     # PODSUMOWANIE
     # ============================================================
 
-    def calculate_risk_level(self, summary, threatfox, virustotal, shodan, crtsh, circl):
+    def calculate_risk_level(self, summary, threatfox, virustotal,
+                              shodan, crtsh, circl, abuse_data=None):
         """
-        Wieloczynnikowy scoring ryzyka na podstawie wszystkich źródeł TI.
-        Zwraca (risk_level, risk_description).
+        Scoring oparty na wartościach liczbowych z każdego źródła.
+        Każde źródło może wnieść maksymalnie 20 punktów.
+        Źródła które nie zwróciły danych są pomijane.
+        Maksymalny score: 120 pkt (6 źródeł × 20 pkt).
         """
-        score = 0
+        score   = 0
         reasons = []
 
-        # --- ThreatFox (najsilniejszy sygnał) ---
-        if threatfox.get("found"):
-            iocs = threatfox.get("iocs", [])
-            max_confidence = max((i.get("confidence_level", 0) for i in iocs), default=0)
-            
-            score += 40
-            if max_confidence == 100:
-                score += 15
-            
-            malware = summary.get("malware_families", [])
-            if malware:
-                reasons.append(f"ThreatFox: {', '.join(malware)} (pewność: {max_confidence}%)")
-            
-            threat_types = summary.get("threat_types", [])
-            if "payload_delivery" in threat_types:
-                score += 10
-                reasons.append("aktywna dystrybucja payloadu")
-            if "c2" in threat_types or "botnet_cc" in threat_types:
-                score += 20
-                reasons.append("C2/botnet")
-
-        # --- VirusTotal ---
-        if virustotal.get("found"):
-            vt_malicious = virustotal.get("malicious", 0)
+        # ── VirusTotal (max 20 pkt) ────────────────────────────
+        # Bazuje na: malicious, suspicious, detection_ratio, reputation
+        if virustotal and virustotal.get("success"):
+            vt_score      = 0
+            vt_malicious  = virustotal.get("malicious", 0)
             vt_suspicious = virustotal.get("suspicious", 0)
             vt_reputation = virustotal.get("reputation", 0)
-            vt_total = virustotal.get("total_engines", 1)
+            vt_total      = virustotal.get("total_engines", 1)
+            vt_categories = virustotal.get("categories", {})
 
-            detection_ratio = (vt_malicious + vt_suspicious) / vt_total if vt_total > 0 else 0
+            detection_ratio = (vt_malicious + vt_suspicious) / vt_total \
+                              if vt_total > 0 else 0
 
-            if vt_malicious >= 10:
-                score += 25
+            # Liczba silników malicious (0–12 pkt)
+            if vt_malicious >= 12:
+                vt_score += 12
+            elif vt_malicious >= 7:
+                vt_score += 10
             elif vt_malicious >= 5:
-                score += 15
+                vt_score += 8
+            elif vt_malicious >= 3:
+                vt_score += 6
             elif vt_malicious >= 1:
-                score += 8
+                vt_score += 4
 
+            # Liczba silników suspicious (0–3 pkt)
             if vt_suspicious >= 3:
-                score += 5
+                vt_score += 3
+            elif vt_suspicious >= 2:
+                vt_score += 2
+            elif vt_suspicious >= 1:
+                vt_score += 1
 
-            if vt_reputation < -10:
-                score += 10
+            # Detection ratio (0–3 pkt)
+            if detection_ratio >= 0.3:
+                vt_score += 3
+            elif detection_ratio >= 0.15:
+                vt_score += 2
+            elif detection_ratio >= 0.05:
+                vt_score += 1
+
+            # Reputacja VT (0–2 pkt)
+            if vt_reputation <= -20:
+                vt_score += 2
             elif vt_reputation < 0:
-                score += 5
+                vt_score += 1
 
-            if vt_malicious > 0 or vt_suspicious > 0:
-                reasons.append(f"VirusTotal: {vt_malicious} malicious, {vt_suspicious} suspicious / {vt_total} silników")
+            # Kategoria malicious (0–1 pkt)
+            malicious_cats = [
+                v for v in vt_categories.values()
+                if any(k in v.lower() for k in
+                       ["malicious", "phishing", "malware"])
+            ]
+            if malicious_cats:
+                vt_score = min(vt_score + 1, 20)
 
-        # --- CIRCL (powiązania z kampaniami APT) ---
+            vt_score = min(vt_score, 20)
+
+            if vt_score > 0:
+                score += vt_score
+                reasons.append(
+                    f"VirusTotal: {vt_malicious} malicious, "
+                    f"{vt_suspicious} suspicious / {vt_total} silników "
+                    f"({detection_ratio:.0%} wykryć) [{vt_score}/20 pkt]"
+                )
+
+        # ── AbuseIPDB (max 20 pkt) ─────────────────────────────
+        # Bazuje na: abuse_score, total_reports, distinct_users, kategorie
+        if abuse_data and abuse_data.get("success"):
+            print(f"[DEBUG ABUSE] abuse_data={abuse_data}")
+            ab_score       = 0
+            abuse_score    = abuse_data.get("abuse_score", 0)
+            total_reports  = abuse_data.get("total_reports", 0)
+            distinct_users = abuse_data.get("distinct_users", 0)
+            categories     = abuse_data.get("categories", [])
+
+            # Abuse score 0-100 → 0-12 pkt
+            if abuse_score > 75:
+                ab_score += 12
+            elif abuse_score > 50:
+                ab_score += 9
+            elif abuse_score > 25:
+                ab_score += 6
+            elif abuse_score > 10:
+                ab_score += 3
+            elif abuse_score > 0:
+                ab_score += 1
+
+            # Liczba unikalnych zgłaszających (0–5 pkt)
+            if distinct_users >= 50:
+                ab_score += 5
+            elif distinct_users >= 20:
+                ab_score += 4
+            elif distinct_users >= 10:
+                ab_score += 3
+            elif distinct_users >= 5:
+                ab_score += 2
+            elif distinct_users >= 1:
+                ab_score += 1
+
+            # Groźne kategorie (0–3 pkt)
+            high_risk = {"Hacking", "Exploited Host",
+                         "Web App Attack", "DDoS Attack"}
+            matched = high_risk & set(categories)
+            if len(matched) >= 3:
+                ab_score += 3
+            elif len(matched) >= 2:
+                ab_score += 2
+            elif len(matched) >= 1:
+                ab_score += 1
+
+            ab_score = min(ab_score, 20)
+            print(f"[DEBUG ABUSE SCORE] ab_score={ab_score} score_przed={score}")
+
+            if ab_score > 0:
+                score += ab_score
+                print(f"[DEBUG ABUSE SCORE] score_po={score}")
+                reasons.append(
+                    f"AbuseIPDB: score {abuse_score}/100 "
+                    f"({distinct_users} zgłaszających) [{ab_score}/20 pkt]"
+                )
+
+        # ── ThreatFox (max 20 pkt) ─────────────────────────────
+        # Bazuje na: confidence_level, threat_type
+        if threatfox.get("found"):
+            tf_score       = 0
+            iocs           = threatfox.get("iocs", [])
+            max_confidence = max(
+                (i.get("confidence_level", 0) for i in iocs), default=0
+            )
+            threat_types = summary.get("threat_types", [])
+            malware      = summary.get("malware_families", [])
+
+            # Confidence level → 0-14 pkt
+            if max_confidence == 100:
+                tf_score += 14
+            elif max_confidence >= 75:
+                tf_score += 10
+            elif max_confidence >= 50:
+                tf_score += 7
+            else:
+                tf_score += 4
+
+            # Typ zagrożenia (0–6 pkt)
+            if "c2" in threat_types or "botnet_cc" in threat_types:
+                tf_score += 6
+            elif "payload_delivery" in threat_types:
+                tf_score += 4
+            elif threat_types:
+                tf_score += 2
+
+            tf_score = min(tf_score, 20)
+            score   += tf_score
+
+            label = ', '.join(malware) if malware else "IOC"
+            if "c2" in threat_types or "botnet_cc" in threat_types:
+                reasons.append(
+                    f"ThreatFox: C2/botnet — {label} "
+                    f"(pewność: {max_confidence}%) [{tf_score}/20 pkt]"
+                )
+            else:
+                reasons.append(
+                    f"ThreatFox: {label} "
+                    f"(pewność: {max_confidence}%) [{tf_score}/20 pkt]"
+                )
+
+        # ── CIRCL (max 20 pkt) ─────────────────────────────────
+        # Bazuje na: events_count, tagi MISP threat-level i kill-chain
         if circl.get("found"):
+            ci_score     = 0
             events_count = circl.get("events_count", 0)
-            score += 20
-            if events_count > 3:
-                score += 10
-            reasons.append(f"CIRCL: {events_count} powiązanych zdarzeń APT")
+            iocs         = circl.get("iocs", [])
 
-        # --- Shodan (ekspozycja infrastruktury) ---
+            # Liczba eventów (0–12 pkt)
+            if events_count >= 10:
+                ci_score += 12
+            elif events_count >= 5:
+                ci_score += 9
+            elif events_count >= 3:
+                ci_score += 6
+            elif events_count >= 1:
+                ci_score += 4
+
+            # Tagi MISP threat-level (0–5 pkt)
+            all_tags = [
+                tag for ioc in iocs
+                for tag in (ioc.get("tags") or [])
+            ]
+            if any("high-risk" in t.lower() for t in all_tags):
+                ci_score += 5
+            elif any("medium-risk" in t.lower() for t in all_tags):
+                ci_score += 3
+            elif any("low-risk" in t.lower() for t in all_tags):
+                ci_score += 1
+
+            # Tag kill-chain (0–3 pkt)
+            if any("kill-chain" in t.lower() for t in all_tags):
+                ci_score += 3
+
+            ci_score = min(ci_score, 20)
+            score   += ci_score
+            reasons.append(
+                f"CIRCL: {events_count} zdarzeń APT [{ci_score}/20 pkt]"
+            )
+
+        # ── Shodan (max 20 pkt) ────────────────────────────────
+        # Bazuje na: vulns (CVE), porty, tagi, bannery HTTP
         if shodan and shodan.get("found"):
-            open_ports = shodan.get("open_ports", [])
-            vulns = shodan.get("vulns", [])
-            score += 10
+            sh_score   = 0
+            open_ports = shodan.get("open_ports") or shodan.get("ports", [])
+            vulns      = shodan.get("vulns", [])
+            tags       = shodan.get("tags", [])
+            bannery    = shodan.get("bannery_http", [])
+
+            # Liczba CVE (0–12 pkt)
+            if len(vulns) >= 5:
+                sh_score += 12
+            elif len(vulns) >= 3:
+                sh_score += 9
+            elif len(vulns) >= 1:
+                sh_score += 6
+
+            # Liczba otwartych portów (0–4 pkt)
+            if len(open_ports) >= 10:
+                sh_score += 4
+            elif len(open_ports) >= 5:
+                sh_score += 3
+            elif len(open_ports) >= 3:
+                sh_score += 2
+            elif len(open_ports) >= 1:
+                sh_score += 1
+
+            # Tagi Shodan — szczególne typy infrastruktury (0–6 pkt)
+            high_risk_tags = {"tor", "vpn", "proxy", "cdn",
+                              "compromised", "malware", "botnet"}
+            medium_risk_tags = {"honeypot", "scanner", "isp"}
+
+            matched_high   = high_risk_tags   & {t.lower() for t in tags}
+            matched_medium = medium_risk_tags  & {t.lower() for t in tags}
+
+            if matched_high:
+                sh_score += 6
+            elif matched_medium:
+                sh_score += 3
+
+            # Bannery HTTP — podejrzane tytuły stron (0–3 pkt)
+            podejrzane_tytuly = [
+                "tor", "exit", "proxy", "vpn", "relay",
+                "router", "anonymizer", "i2p", "darknet",
+            ]
+            for banner in bannery:
+                title = (banner.get("title") or "").lower()
+                if any(s in title for s in podejrzane_tytuly):
+                    sh_score += 3
+                    break
+
+            # Niestandardowe porty C2 (0–2 pkt)
+            # Porty często używane przez malware C2
+            c2_ports = {4444, 4445, 8443, 8080, 8888,
+                        1337, 31337, 6666, 6667, 9001, 9030}
+            if c2_ports & set(open_ports):
+                sh_score += 2
+
+            sh_score = min(sh_score, 20)
+            score   += sh_score
+
+            opis_czesci = []
             if vulns:
-                score += 15
-                reasons.append(f"Shodan: {len(open_ports)} portów, {len(vulns)} CVE")
-            else:
-                reasons.append(f"Shodan: ekspozycja infrastruktury ({len(open_ports)} portów)")
+                opis_czesci.append(f"{len(vulns)} CVE")
+            if matched_high:
+                opis_czesci.append(f"tagi: {', '.join(matched_high)}")
+            elif matched_medium:
+                opis_czesci.append(f"tagi: {', '.join(matched_medium)}")
+            opis_czesci.append(f"{len(open_ports)} portów")
 
-        # --- Certyfikaty (rekonesans / phishing infra) ---
-        cert_count = summary.get("cert_count", 0)
-        if crtsh and crtsh.get("found") and cert_count > 0:
-            score += 5
-            if cert_count > 10:
-                score += 5
-                reasons.append(f"crt.sh: {cert_count} certyfikatów (rozbudowana infrastruktura)")
-            else:
-                reasons.append(f"crt.sh: {cert_count} certyfikatów")
+            reasons.append(
+                f"Shodan: {', '.join(opis_czesci)} [{sh_score}/20 pkt]"
+            )
 
-        # --- Mapowanie score → poziom ---
-        if score >= 80:
+        # ── Mapowanie score → poziom ──────────────────────────
+        active_sources = 0
+        if virustotal and virustotal.get("success") and (virustotal.get("malicious", 0) > 0 or virustotal.get("suspicious", 0) > 0 or virustotal.get("success")):
+            active_sources += 1
+        if abuse_data and abuse_data.get("success"):
+            active_sources += 1
+        if threatfox.get("found"):
+            active_sources += 1
+        if circl.get("found"):
+            active_sources += 1
+        if shodan and shodan.get("found"):
+            active_sources += 1
+
+        max_score = active_sources * 20
+        ratio     = score / max_score if max_score > 0 else 0
+
+        if ratio >= 0.75:
             risk_level = "CRITICAL"
-        elif score >= 55:
+        elif ratio >= 0.50:
             risk_level = "HIGH"
-        elif score >= 30:
+        elif ratio >= 0.25:
             risk_level = "MEDIUM"
-        elif score >= 10:
+        elif ratio > 0:
             risk_level = "LOW"
         else:
             risk_level = "UNKNOWN"
 
-        # --- Opis ---
-        total_sources = summary.get("total_sources", 0)
-
+        # ── Opis ──────────────────────────────────────────────
         if not reasons:
             risk_desc = "Nie znaleziono w żadnym źródle TI"
+        elif len(reasons) == 1:
+            risk_desc = f"{reasons[0]} (score: {score}/{max_score}, {ratio:.0%})"
         else:
-            primary = reasons[0]
-            if len(reasons) > 1:
-                risk_desc = f"{primary} + {len(reasons) - 1} dodatkowych sygnałów (score: {score})"
-            else:
-                risk_desc = f"{primary} (score: {score})"
+            wszystkie = " | ".join(reasons)
+            risk_desc = f"{wszystkie} (score: {score}/{max_score}, {ratio:.0%})"
 
         return risk_level, risk_desc
-    
+
 
     def _build_summary(
-        self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None, whois_data=None
-    ) -> dict:
+        self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None, whois_data=None) -> dict:
 
         found_tf     = threatfox["found"]
         found_circl  = circl["found"]
@@ -434,6 +678,7 @@ class AnalyzerService:
             shodan,
             crtsh,
             circl,
+            abuse_data,
         )
 
         shodan_summary = None
@@ -496,7 +741,7 @@ class AnalyzerService:
         if not mitre_data.get("found"):
             return {
                 "success":   False,
-                "error":     f"Nie znaleziono grupy '{name}' w MITRE ATT&CK",
+                "error":     f"Group '{name}' not found in MITRE ATT&CK",
                 "threatfox": tf_data,
                 "circl":     circl_data,
             }

@@ -96,5 +96,5 @@ class ThreatFoxService:
 
         return {
             "success": False,
-            "error":   data.get("query_status", "Nie znaleziono"),
+            "error":   data.get("query_status", "Not found"),
         }

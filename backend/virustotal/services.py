@@ -39,7 +39,7 @@ class VirusTotalService:
             if response.status_code == 404:
                 return {
                     "success": False,
-                    "error":   "Nie znaleziono w VirusTotal",
+                    "error":   "Not found in VirusTotal",
                     "code":    "NOT_FOUND",
                 }
             if response.status_code == 429:
