@@ -53,7 +53,7 @@ class AnalyzerService:
     # HELPERS
     # ============================================================
 
-    def _is_ip(self, value: str) -> bool:
+    def _is_ip(self, value: str, weights=None) -> bool:
         try:
             ipaddress.ip_address(value)
             return True
@@ -71,40 +71,29 @@ class AnalyzerService:
     # GŁÓWNA METODA — IP / DOMENA
     # ============================================================
 
-    def analyze(self, query: str) -> dict:
-        import logging
-        logger = logging.getLogger(__name__)
-
+    def analyze(self, query: str, weights=None) -> dict:
         is_ip       = self._is_ip(query)
         resolved_ip = None
 
         if not is_ip:
             resolved_ip = self._resolve_domain(query)
-            logger.info(f"[ANALYZE] Domena {query} → IP {resolved_ip}")
 
         ip_for_shodan = query if is_ip else resolved_ip
 
-        logger.info(f"[ANALYZE] Start analizy: {query} (typ: {'ip' if is_ip else 'domain'})")
-
         # ThreatFox
         tf_data = self._query_threatfox(query, resolved_ip)
-        logger.info(f"[ThreatFox] found={tf_data['found']} count={tf_data['count']}")
 
         # CIRCL
         circl_data = self._query_circl(query, resolved_ip)
-        logger.info(f"[CIRCL] found={circl_data['found']} events={circl_data['events_count']}")
 
         # Shodan
         shodan_data = self._query_shodan(ip_for_shodan, query)
-        logger.info(f"[Shodan] found={shodan_data.get('found')} error={shodan_data.get('error')}")
 
         # crt.sh
         crtsh_data = self._query_crtsh(query, ip_for_shodan)
-        logger.info(f"[crt.sh] found={crtsh_data.get('found')} error={crtsh_data.get('error')}")
 
         # WHOIS
         whois_data = self.whois.lookup(query)
-        logger.info(f"[WHOIS] found={whois_data.get('found')} error={whois_data.get('error')}")
 
         # AbuseIPDB
         abuse_data = None
@@ -115,18 +104,15 @@ class AnalyzerService:
                 abuse_data["queried_ip"] = ip_for_abuse
                 if not is_ip:
                     abuse_data["resolved_from"] = query
-            logger.info(f"[AbuseIPDB] found={abuse_data.get('found')} score={abuse_data.get('abuse_score')} error={abuse_data.get('error')}")
 
         # VirusTotal
         vt_data = self.virustotal.lookup(query)
-        logger.info(f"[VirusTotal] found={vt_data.get('found')} malicious={vt_data.get('malicious')} error={vt_data.get('error')}")
 
         summary = self._build_summary(
             query, resolved_ip, tf_data, circl_data,
-            shodan_data, crtsh_data, vt_data, abuse_data, whois_data
+            shodan_data, crtsh_data, vt_data, abuse_data,
+            whois_data, weights=weights
         )
-
-        logger.info(f"[ANALYZE] Koniec: risk={summary.get('risk_level')} sources={summary.get('total_sources')}")
 
         return {
             "success":     True,
@@ -342,7 +328,7 @@ class AnalyzerService:
     # ============================================================
 
     def calculate_risk_level(self, summary, threatfox, virustotal,
-                              shodan, crtsh, circl, abuse_data=None):
+                              shodan, crtsh, circl, abuse_data=None, weights=None):
         """
         Scoring oparty na wartościach liczbowych z każdego źródła.
         Każde źródło może wnieść maksymalnie 20 punktów.
@@ -351,9 +337,33 @@ class AnalyzerService:
         """
         score   = 0
         reasons = []
+        # Domyślne wagi — każde źródło ma równy udział
+        default_weights = {
+            "virustotal": 20,
+            "abuseipdb":  20,
+            "threatfox":  20,
+            "circl":      20,
+            "shodan":     20,
+        }
+        w = weights if weights else default_weights
+
+        # Źródła aktywne — te które mają wagę > 0
+        active_weights = {k: v for k, v in w.items() if v > 0}
+        total_weight   = sum(active_weights.values()) or 1
+
+        def scale(source_id, raw_score):
+            """
+            Skaluje raw_score (0-20) proporcjonalnie do wagi źródła.
+            Wynik zawsze w skali 0-20 niezależnie od wagi.
+            Źródła z wagą 0 są pomijane.
+            """
+            if w.get(source_id, 0) == 0:
+                return 0
+            # raw_score jest już w skali 0-20
+            # waga wpływa na udział w max_score, nie na wartość
+            return raw_score
 
         # ── VirusTotal (max 20 pkt) ────────────────────────────
-        # Bazuje na: malicious, suspicious, detection_ratio, reputation
         if virustotal and virustotal.get("success"):
             vt_score      = 0
             vt_malicious  = virustotal.get("malicious", 0)
@@ -410,12 +420,14 @@ class AnalyzerService:
 
             vt_score = min(vt_score, 20)
 
-            score += vt_score
-            reasons.append(
-                f"VirusTotal: {vt_malicious} malicious, "
-                f"{vt_suspicious} suspicious / {vt_total} engines "
-                f"({detection_ratio:.0%} detect) [{vt_score}/20 pkt]"
-            )
+            if w.get("virustotal", 0) > 0:
+                score += vt_score
+                reasons.append(
+                    f"VirusTotal: {vt_malicious} malicious, "
+                    f"{vt_suspicious} suspicious / {vt_total} engines "
+                    f"({detection_ratio:.0%} detect) [{vt_score}/20 pkt]"
+                )
+
 
         # ── AbuseIPDB (max 20 pkt) ─────────────────────────────
         # Bazuje na: abuse_score, total_reports, distinct_users, kategorie
@@ -467,11 +479,12 @@ class AnalyzerService:
 
             ab_score = min(ab_score, 20)
 
-            score += ab_score
-            reasons.append(
-                f"AbuseIPDB: score {abuse_score}/100 "
-                f"({distinct_users} reporters) [{ab_score}/20 pkt]"
-            )
+            if w.get("abuseipdb", 0) > 0:
+                score += ab_score
+                reasons.append(
+                    f"AbuseIPDB: score {abuse_score}/100 "
+                    f"({distinct_users} reporters) [{ab_score}/20 pkt]"
+                )
 
         # ── ThreatFox (max 20 pkt) ─────────────────────────────
         # Bazuje na: confidence_level, threat_type
@@ -503,19 +516,21 @@ class AnalyzerService:
                 tf_score += 2
 
             tf_score = min(tf_score, 20)
-            score   += tf_score
 
             label = ', '.join(malware) if malware else "IOC"
-            if "c2" in threat_types or "botnet_cc" in threat_types:
-                reasons.append(
-                    f"ThreatFox: C2/botnet — {label} "
-                    f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
-                )
-            else:
-                reasons.append(
-                    f"ThreatFox: {label} "
-                    f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
-                )
+
+            if w.get("threatfox", 0) > 0:
+                score += tf_score
+                if "c2" in threat_types or "botnet_cc" in threat_types:
+                    reasons.append(
+                        f"ThreatFox: C2/botnet — {label} "
+                        f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
+                    )
+                else:
+                    reasons.append(
+                        f"ThreatFox: {label} "
+                        f"(confidence: {max_confidence}%) [{tf_score}/20 pkt]"
+                    )
 
         # ── CIRCL (max 20 pkt) ─────────────────────────────────
         # Bazuje na: events_count, tagi MISP threat-level i kill-chain
@@ -551,14 +566,14 @@ class AnalyzerService:
                 ci_score += 3
 
             ci_score = min(ci_score, 20)
-            score   += ci_score
-            reasons.append(
-                f"CIRCL: {events_count} APT events [{ci_score}/20 pkt]"
-            )
+
+            if w.get("circl", 0) > 0:
+                score += ci_score
+                reasons.append(
+                    f"CIRCL: {events_count} APT events [{ci_score}/20 pkt]"
+                )
 
         # ── Shodan (max 20 pkt) ────────────────────────────────
-        # Bazuje na: vulns (CVE), podejrzane tagi, bannery, porty C2
-        # Porty i CDN NIE są sygnałem zagrożenia — pomijamy je w scoringu
         if shodan and shodan.get("found"):
             sh_score   = 0
             open_ports = shodan.get("open_ports") or shodan.get("ports", [])
@@ -610,7 +625,6 @@ class AnalyzerService:
                 sh_score += 4
 
             sh_score = min(sh_score, 20)
-            score   += sh_score
 
             opis_czesci = []
             if vulns:
@@ -622,40 +636,41 @@ class AnalyzerService:
             if not opis_czesci:
                 opis_czesci.append(f"{len(open_ports)} ports")
 
-            reasons.append(
-                f"Shodan: {', '.join(opis_czesci)} [{sh_score}/20 pkt]"
-            )
+            if w.get("shodan", 0) > 0:
+                score += sh_score
+                reasons.append(
+                    f"Shodan: {', '.join(opis_czesci)} [{sh_score}/20 pkt]"
+                )
 
         # ── Mapowanie score → poziom ──────────────────────────
+        # Policz aktywne źródła — tylko te z wagą > 0 które zwróciły dane
         active_sources = 0
-        print(f"[DEBUG ACTIVE] vt={bool(virustotal and virustotal.get('success'))} abuse={bool(abuse_data and abuse_data.get('success'))} tf={bool(threatfox.get('found'))} circl={bool(circl.get('found'))} shodan={bool(shodan and shodan.get('found'))}")
-
-        # VirusTotal — aktywne jeśli zapytanie się powiodło
-        if virustotal and virustotal.get("success"):
+        if virustotal and virustotal.get("success") and w.get("virustotal", 0) > 0:
+            active_sources += 1
+        if abuse_data and abuse_data.get("success") and w.get("abuseipdb", 0) > 0:
+            active_sources += 1
+        if threatfox.get("found") and w.get("threatfox", 0) > 0:
+            active_sources += 1
+        if circl.get("found") and w.get("circl", 0) > 0:
+            active_sources += 1
+        if shodan and shodan.get("found") and w.get("shodan", 0) > 0:
             active_sources += 1
 
-        # AbuseIPDB — aktywne jeśli zapytanie się powiodło
-        if abuse_data and abuse_data.get("success"):
-            active_sources += 1
+        # Max score
+        max_score = 0
+        if virustotal and virustotal.get("success") and w.get("virustotal", 0) > 0:
+            max_score += 20
+        if abuse_data and abuse_data.get("success") and w.get("abuseipdb", 0) > 0:
+            max_score += 20
+        if threatfox.get("found") and w.get("threatfox", 0) > 0:
+            max_score += 20
+        if circl.get("found") and w.get("circl", 0) > 0:
+            max_score += 20
+        if shodan and shodan.get("found") and w.get("shodan", 0) > 0:
+            max_score += 20
 
-        # ThreatFox — aktywne tylko jeśli coś znalazł
-        if threatfox.get("found"):
-            active_sources += 1
-
-        # CIRCL — analogicznie jak ThreatFox
-        if circl.get("found"):
-            active_sources += 1
-
-        # Shodan — aktywne jeśli host istnieje w bazie
-        if shodan and shodan.get("found"):
-            active_sources += 1
-
-        max_score = active_sources * 20
-        ratio     = score / max_score if max_score > 0 else 0
-        print(f"[DEBUG SCORE] active={active_sources} max={max_score} score={score} ratio={ratio:.0%}")
-        print(f"[DEBUG VT] success={virustotal.get('success') if virustotal else None}")
-        print(f"[DEBUG ABUSE] success={abuse_data.get('success') if abuse_data else None}")
-        print(f"[DEBUG SHODAN] found={shodan.get('found') if shodan else None}")
+        print(f"[DEBUG FINAL] score={score} max_score={max_score} w={w}")
+        ratio = score / max_score if max_score > 0 else 0
 
         if ratio >= 0.75:
             risk_level = "CRITICAL"
@@ -663,7 +678,7 @@ class AnalyzerService:
             risk_level = "HIGH"
         elif ratio >= 0.25:
             risk_level = "MEDIUM"
-        elif ratio > 0:
+        elif ratio >= 0:
             risk_level = "LOW"
         else:
             risk_level = "UNKNOWN"
@@ -681,8 +696,10 @@ class AnalyzerService:
 
 
     def _build_summary(
-        self, query, resolved_ip, threatfox, circl, shodan, crtsh, vt_data=None, abuse_data=None, whois_data=None) -> dict:
-
+        self, query, resolved_ip, threatfox, circl,
+        shodan, crtsh, vt_data=None, abuse_data=None,
+        whois_data=None, weights=None
+    ) -> dict:
         found_tf     = threatfox["found"]
         found_circl  = circl["found"]
         found_shodan = shodan.get("found", False)
@@ -720,6 +737,7 @@ class AnalyzerService:
             crtsh,
             circl,
             abuse_data,
+            weights,
         )
 
         shodan_summary = None

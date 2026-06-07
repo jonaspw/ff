@@ -29,6 +29,13 @@
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 4v4c0 2.8 2.1 5.4 5 6 2.9-.6 5-3.2 5-6V4L7 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
           APT Groups
         </router-link>
+        <router-link to="/settings" class="nav-link" active-class="nav-link--active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.6 2.6l1.1 1.1M10.3 10.3l1.1 1.1M2.6 11.4l1.1-1.1M10.3 3.7l1.1-1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          Settings
+        </router-link>
       </nav>
 
     </div>

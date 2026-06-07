@@ -410,59 +410,40 @@
               <template v-if="result.crtsh.domeny?.length">
                 <div class="sub-title">Domains in certificates</div>
                 <div class="crtsh-domains">
-                  <span
-                    v-for="d in crtshDomainsVisible"
-                    :key="d"
-                    class="mono crtsh-domain"
-                  >{{ d }}</span>
+                  <span v-for="d in crtshDomainsVisible" :key="d" class="mono crtsh-domain">{{ d }}</span>
                 </div>
-                <button
-                  v-if="result.crtsh.domeny.length > crtshDomainsLimit"
-                  class="show-more-btn"
-                  @click="crtshDomainsLimit = crtshDomainsLimit + 20"
-                >
-                  Show {{ Math.min(20, result.crtsh.domeny.length - crtshDomainsLimit) }} more
-                  <span class="text-muted">({{ result.crtsh.domeny.length - crtshDomainsLimit }} remaining)</span>
-                </button>
+                <div class="pagination-row">
+                  <button v-if="crtshDomainsLimit < result.crtsh.domeny.length" class="show-more-btn" @click="crtshDomainsLimit += 20">
+                    Pokaż kolejne 20 <span class="text-muted">(zostało {{ result.crtsh.domeny.length - crtshDomainsLimit }})</span>
+                  </button>
+                  <button v-if="crtshDomainsLimit > 10" class="show-more-btn" @click="crtshDomainsLimit = 10">Zwiń</button>
+                </div>
               </template>
 
               <!-- Recent certificates -->
               <template v-if="result.crtsh.certyfikaty?.length">
                 <div class="sub-title" style="margin-top:14px">
                   Recent certificates
-                  <span class="text-muted" style="font-size:10px;margin-left:6px">showing {{ result.crtsh.certyfikaty.length }} of {{ result.crtsh.cert_count }}</span>
+                  <span class="text-muted" style="font-size:10px;margin-left:6px">showing {{ Math.min(crtshCertsLimit, result.crtsh.certyfikaty.length) }} of {{ result.crtsh.cert_count }}</span>
                 </div>
                 <div class="crtsh-cert-list">
-                  <div
-                    v-for="cert in crtshCertsVisible"
-                    :key="cert.id"
-                    class="crtsh-cert-row"
-                  >
+                  <div v-for="cert in crtshCertsVisible" :key="cert.id" class="crtsh-cert-row">
                     <div class="cert-cn mono">{{ cert.common_name }}</div>
-                    <div class="cert-meta">
-                      <span class="mono cert-issuer-short">{{ cert.issuer }}</span>
-                    </div>
-                    <div class="cert-dates mono">
-                      {{ formatCertDate(cert.not_before) }} → {{ formatCertDate(cert.not_after) }}
-                    </div>
-                    <a
-                      :href="`https://crt.sh/?id=${cert.id}`"
-                      target="_blank"
-                      rel="noopener"
-                      class="cert-link"
-                    >
+                    <div class="cert-meta"><span class="mono cert-issuer-short">{{ cert.issuer }}</span></div>
+                    <div class="cert-dates mono">{{ formatCertDate(cert.not_before) }} → {{ formatCertDate(cert.not_after) }}</div>
+                    <a :href="`https://crt.sh/?id=${cert.id}`" target="_blank" rel="noopener" class="cert-link">
                       <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M10 2H7M10 2V5M10 2L5.5 6.5M9 7v3H2V3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </a>
                   </div>
                 </div>
-                <button
-                  v-if="result.crtsh.certyfikaty.length > crtshCertsLimit"
-                  class="show-more-btn"
-                  @click="crtshCertsLimit = crtshCertsLimit + 10"
-                >
-                  Show {{ Math.min(10, result.crtsh.certyfikaty.length - crtshCertsLimit) }} more
-                </button>
+                <div class="pagination-row">
+                  <button v-if="crtshCertsLimit < result.crtsh.certyfikaty.length" class="show-more-btn" @click="crtshCertsLimit += 10">
+                    Pokaż kolejne 10 <span class="text-muted">(zostało {{ result.crtsh.certyfikaty.length - crtshCertsLimit }})</span>
+                  </button>
+                  <button v-if="crtshCertsLimit > 10" class="show-more-btn" @click="crtshCertsLimit = 10">Zwiń</button>
+                </div>
               </template>
+
             </div>
             <div v-else-if="result.crtsh && !result.crtsh.found" class="card section-card not-found">
               <div class="section-header">
@@ -606,7 +587,21 @@ async function runAnalysis() {
   }, 400)
 
   try {
-    const res = await fetch(`/api/analyze/?q=${encodeURIComponent(q)}`)
+    // Wczytaj konfigurację z localStorage
+    function getConfigHeader() {
+      try {
+        return localStorage.getItem("scoring_config") || null;
+      } catch {
+        return null;
+      }
+    }
+
+    const headers = {}
+    const configHeader = getConfigHeader()
+    if (configHeader) headers["X-Scoring-Config"] = configHeader
+
+    const res = await fetch(`/api/analyze/?q=${encodeURIComponent(q)}`, { headers })
+    
     const data = await res.json()
     if (!res.ok) {
       // Parsuj błędy z backendu: { error: { q: ["..."], ... } }
