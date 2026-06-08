@@ -27,5 +27,5 @@ class CrtShQuerySerializer(serializers.Serializer):
             return value
 
         raise serializers.ValidationError(
-            "Podaj poprawny adres IP lub domenę"
+            "Please provide a valid IP address or domain"
         )

@@ -8,7 +8,6 @@ from ipwhois import IPWhois
 class WhoisService:
     """
     Pobiera dane rejestracyjne dla domen i IP.
-    Nie wymaga klucza API.
 
     Dla domen: python-whois (registrar, daty, NS)
     Dla IP: ipwhois RDAP (ASN, właściciel, kraj)
@@ -25,7 +24,7 @@ class WhoisService:
             if not w or not w.domain_name:
                 return {
                     "success": False,
-                    "error":   f"Brak danych WHOIS dla domeny {domain}",
+                    "error":   f"No WHOIS data for the domain {domain}",
                     "code":    "NOT_FOUND",
                 }
 
@@ -66,8 +65,7 @@ class WhoisService:
             }
 
         except Exception:
-            # Łapiemy wszystkie wyjątki WHOIS — domenę może nie być
-            # zarejestrowana, może być subdomeną, może nie mieć WHOIS
+            # Łapiemy wszystkie wyjątki WHOIS
             return {
                 "success": False,
                 "found":   False,
@@ -107,7 +105,7 @@ class WhoisService:
         except Exception as e:
             return {
                 "success": False,
-                "error":   f"Błąd RDAP dla IP {ip}: {str(e)}",
+                "error":   f"RDAP error for IP {ip}: {str(e)}",
                 "code":    "ERROR",
             }
 

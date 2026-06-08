@@ -12,7 +12,6 @@ class ShodanHostView(APIView):
 
     Zwraca pełne informacje o hoście z Shodan:
     porty, bannery, certyfikaty, ASN, lokalizację.
-    Działa tylko dla adresów IP — nie dla domen.
     """
 
     def get(self, request):
@@ -54,7 +53,6 @@ class ShodanDomainView(APIView):
 
     Zwraca dane DNS dla domeny z Shodan:
     subdomeny, rekordy A/MX/NS/TXT, IP.
-    Wymaga planu Dev — zużywa 1 query credit.
     """
 
     def get(self, request):
@@ -62,7 +60,7 @@ class ShodanDomainView(APIView):
 
         if not domain:
             return Response(
-                {"error": "Podaj domenę"},
+                {"error": "Enter your domain"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

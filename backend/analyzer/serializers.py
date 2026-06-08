@@ -7,13 +7,12 @@ class AnalyzeQuerySerializer(serializers.Serializer):
     q = serializers.CharField(
         min_length=3,
         max_length=253,
-        help_text="Adres IP lub domena do analizy",
+        help_text="IP address or domain to be analyzed",
     )
 
     def validate_q(self, value):
         """
         Sprawdza czy podana wartość to poprawny IP lub domena.
-        Jeśli nie — zwraca błąd z czytelnym komunikatem.
         """
         value = value.strip()
 
@@ -22,8 +21,8 @@ class AnalyzeQuerySerializer(serializers.Serializer):
             ip = ipaddress.ip_address(value)
             if ip.is_private:
                 raise serializers.ValidationError(
-                    "Prywatne adresy IP (192.168.x.x, 10.x.x.x) "
-                    "nie są monitorowane."
+                    "Private IP addresses (192.168.x.x, 10.x.x.x) "
+                    "are not monitored."
                 )
             return value
         except ValueError:
@@ -35,6 +34,7 @@ class AnalyzeQuerySerializer(serializers.Serializer):
             return value
 
         raise serializers.ValidationError(
-            "Podaj poprawny adres IP (np. 185.220.101.47) "
-            "lub domenę (np. update-service.net)"
+            "Please provide a valid IP address (185.220.101.47) "
+            "or domain (update-service.net)"
         )
+    

@@ -26,8 +26,9 @@ class SyncManifestView(APIView):
 class ManifestView(APIView):
     """
     GET /api/circl/manifest/
-    Zwraca listę eventów z lokalnej bazy — zero HTTP do CIRCL.
+    Zwraca listę eventów z lokalnej bazy
     """
+
     def get(self, request):
         service = CIRCLFeedService()
         result  = service.get_manifest_local()
@@ -39,6 +40,7 @@ class EventDetailView(APIView):
     GET /api/circl/event/?uuid=<UUID>
     Zwraca IOC z konkretnego eventu.
     """
+
     def get(self, request):
         serializer = EventQuerySerializer(data=request.query_params)
 
@@ -65,6 +67,7 @@ class ActorSearchView(APIView):
     GET /api/circl/search/?actor=APT28
     Szuka eventów po nazwie grupy APT w lokalnej bazie.
     """
+
     def get(self, request):
         serializer = ActorSearchSerializer(data=request.query_params)
 
@@ -85,10 +88,8 @@ class FullSyncView(APIView):
     POST /api/circl/full-sync/
 
     Pobiera WSZYSTKIE eventy z CIRCL do lokalnej bazy.
-    Wywołaj tylko raz — przy pierwszym uruchomieniu.
-    Może trwać 15-30 minut.
-    Bezpieczne do wielokrotnego wywołania — pomija już pobrane.
     """
+    
     def post(self, request):
         service = CIRCLFeedService()
         result  = service.full_sync()

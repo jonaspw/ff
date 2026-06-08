@@ -10,7 +10,6 @@ from django.conf import settings
 class CrtShService:
     """
     Pobiera dane z crt.sh — Certificate Transparency Logs.
-    Nie wymaga klucza API ani rejestracji.
     Dokumentacja: https://crt.sh
     """
 
@@ -29,7 +28,10 @@ class CrtShService:
     # ============================================================
 
     def _init_db(self):
-        """Tworzy tabelę cache dla crt.sh jeśli nie istnieje."""
+        """
+        Tworzy tabelę cache dla crt.sh jeśli nie istnieje.
+        """
+
         conn = sqlite3.connect("cache.db")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS crtsh_cache (
@@ -42,7 +44,10 @@ class CrtShService:
         conn.close()
 
     def _cache_get(self, key: str) -> dict | None:
-        """Pobierz z cache — zwróć None jeśli wygasł lub brak."""
+        """
+        Pobierz z cache — zwróć None jeśli wygasł lub brak.
+        """
+
         conn = sqlite3.connect("cache.db")
         row = conn.execute(
             "SELECT data, cached_at FROM crtsh_cache WHERE key = ?",
@@ -60,7 +65,10 @@ class CrtShService:
         return json.loads(row[0])
 
     def _cache_set(self, key: str, data: dict):
-        """Zapisz dane do cache."""
+        """
+        Zapisz dane do cache.
+        """
+
         conn = sqlite3.connect("cache.db")
         conn.execute("""
             INSERT OR REPLACE INTO crtsh_cache (key, data, cached_at)
@@ -74,7 +82,10 @@ class CrtShService:
     # ============================================================
 
     def _get(self, params: dict) -> dict:
-        """Wykonaj GET do crt.sh z obsługą błędów."""
+        """
+        Wykonaj GET do crt.sh z obsługą błędów.
+        """
+
         try:
             response = requests.get(
                 self.BASE_URL,
@@ -91,11 +102,11 @@ class CrtShService:
             return {"success": True, "data": response.json()}
 
         except requests.exceptions.Timeout:
-            return {"success": False, "error": "Timeout — crt.sh nie odpowiada"}
+            return {"success": False, "error": "Timeout — crt.sh not responding"}
         except requests.exceptions.ConnectionError:
-            return {"success": False, "error": "Brak połączenia z internetem"}
+            return {"success": False, "error": "No internet connection"}
         except requests.exceptions.JSONDecodeError:
-            return {"success": False, "error": "Błąd parsowania odpowiedzi crt.sh"}
+            return {"success": False, "error": "Error parsing crt.sh response"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -106,10 +117,10 @@ class CrtShService:
     def get_domain_certs(self, domain: str) -> dict:
         """
         Pobiera wszystkie certyfikaty TLS dla domeny.
-        Używa wildcarda % żeby znaleźć też subdomeny.
 
         Zwraca: certyfikaty, subdomeny, wystawcy, daty.
         """
+
         # Sprawdź cache
         cache_key = f"domain_{domain}"
         cached = self._cache_get(cache_key)
@@ -199,8 +210,8 @@ class CrtShService:
     def get_ip_certs(self, ip: str) -> dict:
         """
         Pobiera certyfikaty dla adresu IP.
-        Przydatne do wykrywania domen hostowanych na tym IP.
         """
+        
         cache_key = f"ip_{ip}"
         cached = self._cache_get(cache_key)
         if cached:

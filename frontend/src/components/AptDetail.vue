@@ -337,7 +337,6 @@ function truncate(str, len) {
   width: 100%;
 }
 
-/* Karta która wypełnia pozostałe miejsce w kolumnie */
 .flex-card {
   flex: 1;
   display: flex;

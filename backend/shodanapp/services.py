@@ -72,12 +72,11 @@ class ShodanService:
 
         except shodan.APIError as e:
             error_msg = str(e)
-            print(f"[SHODAN DEBUG] IP: {ip} | Błąd: '{error_msg}'")
 
             if "No information available" in error_msg:
                 return {
                     "success": False,
-                    "error":   f"Shodan nie ma danych dla IP {ip}",
+                    "error":   f"Shodan has no data for IP {ip}",
                     "code":    "NOT_FOUND",
                 }
 
@@ -85,7 +84,7 @@ class ShodanService:
                 return {
                     "success": False,
                     "error":   (
-                        f"Shodan nie udostępnia danych dla IP {ip}"
+                        f"Shodan does not share IP data {ip}"
                     ),
                     "code":    "PLAN_LIMIT",
                 }
@@ -93,7 +92,7 @@ class ShodanService:
             if "Access denied" in error_msg or "403" in error_msg:
                 return {
                     "success": False,
-                    "error":   "Brak dostępu do Shodan API — sprawdź klucz",
+                    "error":   "No access to Shodan API - check key",
                     "code":    "AUTH_ERROR",
                 }
 
@@ -103,13 +102,10 @@ class ShodanService:
                 "code":    "API_ERROR",
             }
         
-
     def get_domain_info(self, domain: str) -> dict:
         """
         Pobiera informacje DNS dla domeny z Shodan.
         Endpoint: GET /dns/domain/{domain}
-        Wymaga planu Dev lub wyższego.
-        Zużywa 1 query credit.
         """
         try:
             result = self.api.dns.domain_info(
@@ -156,18 +152,17 @@ class ShodanService:
 
         except shodan.APIError as e:
             error_msg = str(e)
-            print(f"[SHODAN DEBUG] Domain: {domain} | Błąd: '{error_msg}'")
 
             if "No information available" in error_msg:
                 return {
                     "success": False,
-                    "error":   f"Shodan nie ma danych dla domeny {domain}",
+                    "error":   f"Shodan has no data for the domain {domain}",
                     "code":    "NOT_FOUND",
                 }
             if "Invalid API key" in error_msg or "Upgrade" in error_msg:
                 return {
                     "success": False,
-                    "error":   "Endpoint DNS wymaga planu Dev lub wyższego",
+                    "error":   "Endpoint DNS requires Dev plan or higher",
                     "code":    "PLAN_LIMIT",
                 }
 

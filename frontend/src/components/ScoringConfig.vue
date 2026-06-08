@@ -1,4 +1,3 @@
-<!-- frontend/src/components/ScoringConfig.vue -->
 
 <template>
   <div class="scoring-config">
@@ -8,12 +7,12 @@
           <circle cx="8" cy="8" r="6.5" stroke="var(--accent-cyan)" stroke-width="1.3"/>
           <path d="M8 5v3l2 1.5" stroke="var(--accent-cyan)" stroke-width="1.3" stroke-linecap="round"/>
         </svg>
-        <span class="config-title mono">KONFIGURACJA SCORINGU</span>
+        <span class="config-title mono">SCORING CONFIGURATION</span>
       </div>
       <p class="config-desc">
-        Ustaw udział każdego źródła w końcowej ocenie ryzyka.
-        Suma wag aktywnych źródeł musi wynosić 100%.
-        Ustawienia zapisują się lokalnie w przeglądarce.
+        Set the contribution of each source to the final risk score.
+        The sum of the weights of active sources must equal 100%.
+        Settings are saved locally in the browser.
       </p>
     </div>
 

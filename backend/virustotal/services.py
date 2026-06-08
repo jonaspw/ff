@@ -7,11 +7,8 @@ from django.conf import settings
 
 class VirusTotalService:
     """
-    Pobiera dane reputacji z VirusTotal API v3.
+    Pobiera dane reputacji z VirusTotal API.
     Dokumentacja: https://docs.virustotal.com/reference/overview
-
-    Darmowy plan: 500 zapytań dziennie, 4 na minutę.
-    Działa dla IP i domen.
     """
 
     def __init__(self):
@@ -22,7 +19,10 @@ class VirusTotalService:
         }
 
     def _get(self, endpoint: str) -> dict:
-        """Wykonaj GET do VirusTotal API."""
+        """
+        Wykonaj GET do VirusTotal API.
+        """
+
         try:
             response = requests.get(
                 f"{self.api_url}{endpoint}",
@@ -33,7 +33,7 @@ class VirusTotalService:
             if response.status_code == 401:
                 return {
                     "success": False,
-                    "error":   "Nieprawidłowy klucz API VirusTotal",
+                    "error":   "Invalid VirusTotal API Key",
                     "code":    "AUTH_ERROR",
                 }
             if response.status_code == 404:
@@ -45,7 +45,7 @@ class VirusTotalService:
             if response.status_code == 429:
                 return {
                     "success": False,
-                    "error":   "Przekroczono limit zapytań VirusTotal (4/min)",
+                    "error":   "VirusTotal query limit exceeded",
                     "code":    "RATE_LIMIT",
                 }
 
@@ -53,9 +53,9 @@ class VirusTotalService:
             return {"success": True, "data": response.json()}
 
         except requests.exceptions.Timeout:
-            return {"success": False, "error": "Timeout — VirusTotal nie odpowiada"}
+            return {"success": False, "error": "Timeout — VirusTotal doesn't respond"}
         except requests.exceptions.ConnectionError:
-            return {"success": False, "error": "Brak połączenia z internetem"}
+            return {"success": False, "error": "No internet connection"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

@@ -11,10 +11,6 @@ from .serializers import AnalyzeQuerySerializer
 class AnalyzeView(APIView):
     """
     GET /api/analyze/?q=<ip_lub_domena>
-
-    Opcjonalnie przyjmuje nagłówek X-Scoring-Config
-    z konfiguracją wag w formacie JSON.
-    Jeśli brak nagłówka — używa domyślnych wag.
     """
     permission_classes = []
 
@@ -51,11 +47,8 @@ class AnalyzeView(APIView):
         # Fallback do domyślnych wag
         if not weights:
             weights = get_effective_weights()
-
-        
+   
         config_header = request.headers.get("X-Scoring-Config")
-        print(f"[DEBUG CONFIG] header={config_header}")
-        print(f"[DEBUG WEIGHTS] weights={weights}")
 
         service = AnalyzerService()
         result  = service.analyze(query, weights=weights)
@@ -65,8 +58,6 @@ class AnalyzeView(APIView):
 class APTProfileView(APIView):
     """
     GET /api/analyze/apt/?name=APT28
-    GET /api/analyze/apt/?name=Fancy+Bear
-    GET /api/analyze/apt/?name=Lazarus
 
     Zwraca pełny profil grupy APT:
     MITRE ATT&CK + ThreatFox IOC + CIRCL eventy
@@ -98,19 +89,6 @@ class APTProfileView(APIView):
 class AnalyzeWithConfigView(APIView):
     """
     POST /api/analyze/config/
-
-    Analiza z własną konfiguracją wag źródeł.
-    Body JSON:
-    {
-        "q": "185.220.101.47",
-        "weights": {
-            "virustotal": 40,
-            "abuseipdb":  30,
-            "threatfox":  20,
-            "circl":      10,
-            "shodan":     0
-        }
-    }
     """
 
     def post(self, request):
@@ -147,6 +125,7 @@ class ScoringConfigView(APIView):
         """Zwraca aktualną konfigurację scoringu."""
         config = load_config()
         return Response({"status": "ok", **config})
+
 
     def post(self, request):
         """

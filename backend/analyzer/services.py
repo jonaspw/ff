@@ -19,7 +19,7 @@ from virustotal.services import VirusTotalService
 
 class AnalyzerService:
 
-    # Słownik aliasów — atrybut klasy (poza __init__)
+    # Słownik aliasów
     ALIASES = {
         "apt28":      ["apt28", "fancy bear", "sofacy", "strontium",
                        "pawn storm", "sednit", "forest blizzard"],
@@ -220,10 +220,6 @@ class AnalyzerService:
     def _query_shodan(
         self, ip: str | None, original_query: str
     ) -> dict:
-        """
-        Dla IP: pobiera dane hosta.
-        Dla domeny: pobiera dane DNS (wymaga planu Dev).
-        """
         # Zapytanie domenowe
         if not self._is_ip(original_query) and ip is None:
             return {
@@ -262,7 +258,7 @@ class AnalyzerService:
                 "last_update":  result.get("last_update"),
             }
 
-            # Jeśli zapytanie było domeną — dołącz też dane DNS
+            # Jeśli zapytanie było domeną dołącz też dane DNS
             if not self._is_ip(original_query):
                 dns_result = self.shodan.get_domain_info(original_query)
                 if dns_result["success"]:
@@ -329,12 +325,6 @@ class AnalyzerService:
 
     def calculate_risk_level(self, summary, threatfox, virustotal,
                               shodan, crtsh, circl, abuse_data=None, weights=None):
-        """
-        Scoring oparty na wartościach liczbowych z każdego źródła.
-        Każde źródło może wnieść maksymalnie 20 punktów.
-        Źródła które nie zwróciły danych są pomijane.
-        Maksymalny score: 120 pkt (6 źródeł × 20 pkt).
-        """
         score   = 0
         reasons = []
         # Domyślne wagi — każde źródło ma równy udział

@@ -8,9 +8,6 @@ class AbuseIPDBService:
     """
     Pobiera dane o złośliwości IP z AbuseIPDB.
     Dokumentacja: https://www.abuseipdb.com/api.html
-
-    Darmowy plan: 1000 zapytań dziennie.
-    Działa tylko dla adresów IP — nie dla domen.
     """
 
     def __init__(self):
@@ -126,8 +123,8 @@ class AbuseIPDBService:
             }
 
         except requests.exceptions.Timeout:
-            return {"success": False, "error": "Timeout — AbuseIPDB nie odpowiada"}
+            return {"success": False, "error": "Timeout — AbuseIPDB not respondinga"}
         except requests.exceptions.ConnectionError:
-            return {"success": False, "error": "Brak połączenia z internetem"}
+            return {"success": False, "error": "No internet connection"}
         except Exception as e:
             return {"success": False, "error": str(e)}

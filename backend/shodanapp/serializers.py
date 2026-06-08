@@ -13,10 +13,10 @@ class ShodanIPQuerySerializer(serializers.Serializer):
             ip = ipaddress.ip_address(value)
             if ip.is_private:
                 raise serializers.ValidationError(
-                    "Prywatne adresy IP nie są dostępne w Shodan."
+                    "Private IP addresses are not available in Shodan."
                 )
             return value
         except ValueError:
             raise serializers.ValidationError(
-                "Podaj poprawny adres IP (np. 185.220.101.47)"
+                "Please enter a valid IP address (e.g. 185.220.101.47)"
             )

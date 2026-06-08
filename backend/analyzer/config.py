@@ -28,7 +28,6 @@ DEFAULT_CONFIG = {
 def load_config() -> dict:
     """
     Wczytuje konfigurację z pliku JSON.
-    Jeśli plik nie istnieje — zwraca domyślną konfigurację.
     """
     if not os.path.exists(CONFIG_PATH):
         return DEFAULT_CONFIG.copy()
@@ -43,7 +42,6 @@ def load_config() -> dict:
 def save_config(weights: dict, enabled: dict) -> dict:
     """
     Zapisuje konfigurację do pliku JSON.
-    Waliduje że suma wag aktywnych źródeł = 100.
     """
     # Walidacja
     active_sum = sum(
@@ -52,8 +50,8 @@ def save_config(weights: dict, enabled: dict) -> dict:
     )
     if active_sum != 100:
         raise ValueError(
-            f"Suma wag aktywnych źródeł musi wynosić 100% "
-            f"(aktualnie: {active_sum}%)"
+            f"The sum of the active source weights must be 100% "
+            f"(currently: {active_sum}%)"
         )
 
     config = {"weights": weights, "enabled": enabled}
@@ -67,7 +65,6 @@ def save_config(weights: dict, enabled: dict) -> dict:
 def get_effective_weights() -> dict:
     """
     Zwraca efektywne wagi — wyłączone źródła mają wagę 0.
-    To jest to co trafia do calculate_risk_level.
     """
     config  = load_config()
     weights = config.get("weights", DEFAULT_CONFIG["weights"])

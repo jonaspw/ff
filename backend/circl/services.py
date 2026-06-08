@@ -74,22 +74,20 @@ class CIRCLFeedService:
         except requests.exceptions.Timeout:
             return {"success": False, "error": "Timeout"}
         except requests.exceptions.ConnectionError:
-            return {"success": False, "error": "Brak połączenia"}
+            return {"success": False, "error": "No connection"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     def sync_manifest(self) -> dict:
         """
         Synchronizuje manifest z CIRCL.
-        Pobiera tylko nowe eventy — nie nadpisuje istniejących.
-        Wykonuje maksymalnie jedno zapytanie HTTP na 24h.
         """
         if self._manifest_is_fresh():
             return {
                 "success":    True,
                 "synced":     False,
                 "new_events": 0,
-                "message":    "Manifest aktualny — następne odświeżenie za < 24h",
+                "message":    "Manifesto up to date - next refresh in <24 hours",
             }
 
         # Pobierz aktualny manifest z CIRCL
@@ -133,7 +131,7 @@ class CIRCLFeedService:
             "synced":     True,
             "total":      len(remote),
             "new_events": len(new_uuids),
-            "message":    f"Znaleziono {len(new_uuids)} nowych eventów",
+            "message":    f"{len(new_uuids)} new events found",
         }
 
     def get_event(self, uuid: str) -> dict:
@@ -201,7 +199,6 @@ class CIRCLFeedService:
     def get_manifest_local(self) -> dict:
         """
         Zwraca manifest z lokalnej bazy SQLite.
-        Zero requestów HTTP do CIRCL.
         """
         conn = sqlite3.connect("cache.db")
         rows = conn.execute(
@@ -223,7 +220,6 @@ class CIRCLFeedService:
     def search_by_actor(self, actor: str) -> dict:
         """
         Szukaj eventów po nazwie grupy APT w lokalnej bazie.
-        Zero requestów HTTP do CIRCL.
         """
         conn = sqlite3.connect("cache.db")
         rows = conn.execute("""
@@ -247,11 +243,6 @@ class CIRCLFeedService:
     def full_sync(self) -> dict:
         """
         Pobiera WSZYSTKIE eventy z CIRCL i zapisuje do bazy.
-        Wywołaj tylko raz — przy pierwszym uruchomieniu.
-        Kolejne aktualizacje obsługuje sync_manifest().
-
-        Pomija eventy które już są w cache — bezpieczne do
-        wielokrotnego wywołania jeśli przerwiemy w połowie.
         """
         # Najpierw pobierz/zaktualizuj manifest
         manifest_result = self._get(f"{self.FEED_URL}manifest.json")
@@ -324,8 +315,8 @@ class CIRCLFeedService:
             # Log postępu co 50 eventów
             if (i + 1) % 50 == 0:
                 print(
-                    f"Postęp: {i+1}/{to_fetch_count} "
-                    f"({fetched} ok, {failed} błędów)"
+                    f"Progress: {i+1}/{to_fetch_count} "
+                    f"({fetched} ok, {failed} errors)"
                 )
 
         # Zaktualizuj znacznik czasu manifestu
@@ -339,9 +330,9 @@ class CIRCLFeedService:
             "failed":        failed,
             "failed_uuids":  failed_uuids[:10],  # pierwsze 10 błędów
             "message": (
-                f"Pobrano {fetched} nowych eventów. "
-                f"{already} było już w cache. "
-                f"{failed} błędów."
+                f"Fetched {fetched} new events. "
+                f"{already} were already in the cache. "
+                f"{failed} errors."
             ),
         }
     

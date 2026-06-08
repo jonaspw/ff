@@ -32,12 +32,12 @@ class ThreatFoxService:
         except requests.exceptions.Timeout:
             return {
                 "success": False,
-                "error":   "Timeout — ThreatFox API nie odpowiada"
+                "error":   "Timeout — ThreatFox API not responding"
             }
         except requests.exceptions.ConnectionError:
             return {
                 "success": False,
-                "error":   "Brak połączenia z internetem"
+                "error":   "No internet connection"
             }
         except requests.exceptions.HTTPError as e:
             return {
@@ -69,7 +69,7 @@ class ThreatFoxService:
 
         return {
             "success": False,
-            "error":   data.get("query_status", "Nieznany błąd API"),
+            "error":   data.get("query_status", "Unknown API error"),
         }
 
     def search_ioc(self, search_term: str) -> dict:

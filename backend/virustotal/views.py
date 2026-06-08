@@ -19,7 +19,7 @@ class VirusTotalLookupView(APIView):
 
         if not query:
             return Response(
-                {"error": "Podaj adres IP lub domenę"},
+                {"error": "Enter IP address or domain"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

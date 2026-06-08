@@ -12,8 +12,6 @@ class AbuseIPDBCheckView(APIView):
     GET /api/abuseipdb/?ip=185.220.101.47
 
     Sprawdza reputację IP w AbuseIPDB.
-    Zwraca abuse score 0-100 i kategorie ataków.
-    Działa tylko dla adresów IP.
     """
 
     def get(self, request):
@@ -30,12 +28,12 @@ class AbuseIPDBCheckView(APIView):
             addr = ipaddress.ip_address(ip)
             if addr.is_private:
                 return Response(
-                    {"error": "Prywatne adresy IP nie są dostępne w AbuseIPDB"},
+                    {"error": "Private IP addresses are not available in AbuseIPDB"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except ValueError:
             return Response(
-                {"error": "Podaj poprawny adres IP"},
+                {"error": "Please enter a valid IP address"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
