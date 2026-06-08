@@ -71,8 +71,8 @@
         <line v-else x1="6.5" y1="3.5" x2="6.5" y2="7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
         <circle v-if="total !== 100" cx="6.5" cy="9.5" r="0.7" fill="currentColor"/>
       </svg>
-      <span v-if="total === 100">Suma wag: 100% — gotowe do zapisu</span>
-      <span v-else>Suma wag: <strong>{{ total }}%</strong> — wymagane 100%</span>
+      <span v-if="total === 100">Weight sum: 100% — ready to save </span>
+      <span v-else>Weight sum: <strong>{{ total }}%</strong> — required 100%</span>
       <div class="sum-progress">
         <div class="sum-fill" :style="{ width: Math.min(total, 100) + '%' }" :class="total === 100 ? 'ok' : total > 100 ? 'over' : 'under'"></div>
       </div>
@@ -84,11 +84,11 @@
     <div class="actions">
       <button class="btn-reset" @click="handleReset">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 6a5 5 0 1 0 1.5-3.5L1 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 1v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Przywróć domyślne
+        Restore default values
       </button>
       <button class="btn-save" :disabled="total !== 100" @click="handleSave">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6.5l2.5 2.5L10 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        {{ savedMsg || 'Zapisz ustawienia' }}
+        {{ savedMsg || 'Save settings' }}
       </button>
     </div>
   </div>
@@ -98,11 +98,11 @@
 import { ref, computed } from 'vue'
 
 const SOURCES = [
-  { id: 'virustotal', name: 'VirusTotal', color: 'var(--accent-blue)',   desc: 'Analiza wielosilnikowa AV — malicious, suspicious, detection ratio' },
-  { id: 'abuseipdb',  name: 'AbuseIPDB',  color: 'var(--risk-critical)', desc: 'Abuse score 0–100 oparty na zgłoszeniach społeczności' },
-  { id: 'threatfox',  name: 'ThreatFox',  color: 'var(--accent-orange)', desc: 'Baza IOC z confidence level i typem zagrożenia' },
-  { id: 'circl',      name: 'CIRCL',      color: 'var(--accent-purple)', desc: 'Eventy APT z tagami MISP threat-level i kill-chain' },
-  { id: 'shodan',     name: 'Shodan',     color: '#e8073a',              desc: 'CVE, tagi infrastruktury, bannery HTTP, porty C2' },
+  { id: 'virustotal', name: 'VirusTotal', color: 'var(--accent-blue)',   desc: 'Multi-engine AV analysis - malicious, suspicious, detection ratio' },
+  { id: 'abuseipdb',  name: 'AbuseIPDB',  color: 'var(--risk-critical)', desc: 'Abuse score 0–100 based on community reports' },
+  { id: 'threatfox',  name: 'ThreatFox',  color: 'var(--accent-orange)', desc: 'IOC database with confidence level and threat type' },
+  { id: 'circl',      name: 'CIRCL',      color: 'var(--accent-purple)', desc: 'APT events with MISP threat-level and kill-chain tags' },
+  { id: 'shodan',     name: 'Shodan',     color: '#e8073a',              desc: 'CVE, infrastructure tags, HTTP banners, C2 ports' },
 ]
 
 const DEFAULT_CONFIG = {

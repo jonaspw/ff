@@ -3,7 +3,6 @@
     <div class="page-inner">
       <!-- Hero search -->
       <section class="hero">
-        <div class="hero-label mono">THREAT INTELLIGENCE PLATFORM</div>
         <h1 class="hero-title">Analyze. Identify. <span class="text-cyan">Track.</span></h1>
         <p class="hero-sub">Search IPs, domains, or APT group names to retrieve threat data from multiple intelligence sources.</p>
 
@@ -31,53 +30,6 @@
             Analyze
           </button>
         </form>
-
-        <div class="search-hints">
-          <span class="hint" @click="setQuery('185.220.101.47')">185.220.101.47</span>
-          <span class="hint" @click="setQuery('update-service.net')">update-service.net</span>
-          <span class="hint" @click="setQuery('APT28')">APT28</span>
-          <span class="hint" @click="setQuery('Lazarus')">Lazarus</span>
-        </div>
-      </section>
-
-      <!-- Stats row -->
-      <section class="stats-row">
-        <div class="stat-card">
-          <div class="stat-icon" style="color: var(--accent-cyan)">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 17L6 9l3 4 3-6 5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div>
-            <div class="stat-value mono">6</div>
-            <div class="stat-label">Data Sources</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="color: var(--accent-orange)">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M9 5v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </div>
-          <div>
-            <div class="stat-value mono">REAL-TIME</div>
-            <div class="stat-label">Intelligence</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="color: var(--accent-purple)">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1L3 4.5v5C3 13.1 5.6 16.4 9 17c3.4-.6 6-3.9 6-7.5v-5L9 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          </div>
-          <div>
-            <div class="stat-value mono">MITRE ATT&CK</div>
-            <div class="stat-label">Framework</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="color: var(--accent-green)">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </div>
-          <div>
-            <div class="stat-value mono">IOC</div>
-            <div class="stat-label">Correlation</div>
-          </div>
-        </div>
       </section>
 
       <!-- Sources grid -->
@@ -135,7 +87,8 @@ const sources = [
   { name: 'ThreatFox', color: '#dd6b20', desc: 'IOC repository from abuse.ch tracking malware infrastructure and C2 servers.', tags: ['IOC', 'Malware', 'C2'] },
   { name: 'CIRCL', color: '#9f7aea', desc: 'MISP events from CIRCL.lu Computer Incident Response Center Luxembourg.', tags: ['Events', 'MISP'] },
   { name: 'MITRE ATT&CK', color: '#00d4ff', desc: 'Tactics, techniques and procedures mapped to known threat actor groups.', tags: ['APT', 'TTP', 'STIX'] },
-  { name: 'WHOIS / BGP', color: '#38a169', desc: 'IP ownership, ASN data, BGP routing information, and network registration records.', tags: ['IP', 'ASN', 'Network'] },
+  { name: 'WHOIS', color: '#38a169', desc: 'IP ownership, ASN data, BGP routing information, and network registration records.', tags: ['IP', 'ASN', 'Network'] },
+  { name: 'crt.sh', color: '#b794f4', desc: 'Certificate Transparency logs — history of TLS certificates issued for domains and IPs.', tags: ['Certificates', 'Domains', 'TLS'] },
 ]
 </script>
 

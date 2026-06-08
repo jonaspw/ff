@@ -130,7 +130,7 @@ async function searchApt() {
       result.value = data
     }
   } catch (e) {
-    errors.value = [`Nie można połączyć się z backendem: ${e.message}`]
+    errors.value = [`Cannot connect to backend: ${e.message}`]
   } finally {
     loading.value = false
   }
