@@ -1,6 +1,6 @@
 // frontend/src/api/analyze.js
 
-const API_BASE = "https://tracker-backend-production-9a2e.up.railway.app";
+const API_BASE = "https://tracker-backend-production-9a2e.up.railway.app/";
 
 function getConfigHeader() {
   try {
