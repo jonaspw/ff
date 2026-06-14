@@ -91,7 +91,7 @@ class CrtShService:
                 self.BASE_URL,
                 params=params,
                 headers=self.headers,
-                timeout=30,
+                timeout=(5, 15)
             )
             response.raise_for_status()
 
