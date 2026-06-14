@@ -76,7 +76,11 @@
             <span class="badge badge-neutral" style="margin-left:auto">{{ mitre.techniki_count }} total</span>
           </div>
           <div class="techniques-list">
-            <div v-for="tech in techVisible" :key="tech.id" class="technique-row">
+            <div v-for="tech in techVisible" :key="tech.id"
+              class="technique-row"
+              @click="activeTechniqueId = tech.id"
+              style="cursor:pointer"
+            >
               <div class="tech-id-wrap">
                 <span class="tech-id mono">{{ tech.id }}</span>
                 <span v-for="tac in tech.taktyki" :key="tac" class="badge badge-neutral" style="font-size:10px">{{ formatTactic(tac) }}</span>
@@ -208,6 +212,12 @@
           @close="activeCirclUuid = null"
         />
 
+        <TechniqueModal
+          v-if="activeTechniqueId"
+          :technique-id="activeTechniqueId"
+          @close="activeTechniqueId = null"
+        />
+
       </div>
     </div>
   </div>
@@ -217,6 +227,9 @@
 import { computed, ref, inject } from 'vue'
 import CirclEventModal from './CirclEventModal.vue'
 import ThreatFoxIocModal from './ThreatFoxIocModal.vue'
+import TechniqueModal from './TechniqueModal.vue'
+
+const activeTechniqueId = ref(null)
 
 const props = defineProps({ data: Object })
 

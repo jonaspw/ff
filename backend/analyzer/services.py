@@ -804,6 +804,40 @@ class AnalyzerService:
             "circl":      circl_data,
         }
 
+    def get_technique(self, technique_id: str) -> dict:
+        """Zwraca pełny opis techniki ATT&CK po ID"""
+        mitre      = self._get_mitre()
+        techniques = mitre.get_techniques()
+
+        techniques = [
+            t for t in mitre.get_techniques()
+            if not t.get("revoked") and not t.get("x_mitre_deprecated")
+        ]
+
+        for tech in techniques:
+            attack_id = self._get_attack_id(tech)
+            if attack_id.upper() == technique_id.upper():
+                taktyki = [
+                    p["phase_name"]
+                    for p in tech.get("kill_chain_phases", [])
+                    if p.get("kill_chain_name") == "mitre-attack"
+                ]
+                return {
+                    "success":    True,
+                    "id":         attack_id,
+                    "name":       tech.get("name", ""),
+                    "opis":       tech.get("description", ""),
+                    "taktyki":    taktyki,
+                    "url":        f"https://attack.mitre.org/techniques/{attack_id.replace('.', '/')}/",
+                    "platforms":  tech.get("x_mitre_platforms", []),
+                    "detection":  tech.get("x_mitre_detection", ""),
+                }
+
+        return {
+            "success": False,
+            "error":   f"Technique not found {technique_id}",
+        }
+
     def _find_aliases(self, name: str) -> list:
         """Zwraca wszystkie aliasy dla podanej nazwy grupy."""
         name_lower = name.lower().strip()

@@ -68,7 +68,7 @@ class APTProfileView(APIView):
 
         if not name or len(name) < 2:
             return Response(
-                {"error": "Podaj nazwę grupy APT (min. 2 znaki)"},
+                {"error": "Enter the APT group name (min. 2 characters)"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -80,6 +80,33 @@ class APTProfileView(APIView):
                 {"error": result["error"],
                  "threatfox": result.get("threatfox"),
                  "circl":     result.get("circl")},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({"status": "ok", **result})
+    
+
+class TechniqueDetailView(APIView):
+    """
+    GET /api/analyze/apt/technique/?id=T1003.003
+    Zwraca pełny opis techniki MITRE ATT&CK.
+    """
+
+    def get(self, request):
+        technique_id = request.query_params.get("id", "").strip()
+
+        if not technique_id:
+            return Response(
+                {"error": "Enter the technique ID, e.g. T1003.003"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = AnalyzerService()
+        result  = service.get_technique(technique_id)
+
+        if not result["success"]:
+            return Response(
+                {"error": result["error"]},
                 status=status.HTTP_404_NOT_FOUND
             )
 

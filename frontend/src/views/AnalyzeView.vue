@@ -160,52 +160,6 @@
               </div>
             </div>
 
-          </div>
-
-          <!-- Right column -->
-          <div class="col-right">
-
-            <!-- WHOIS -->
-            <div v-if="result.whois?.found" class="card section-card">
-              <div class="section-header">
-                <span class="section-icon whois"></span>
-                <span class="section-title">WHOIS{{ result.whois.type === 'ip' ? ' / BGP' : '' }}</span>
-              </div>
-              <div class="kv-grid">
-                <!-- IP fields -->
-                <div class="kv" v-if="result.whois.asn"><span class="kv-key">ASN</span><span class="kv-val mono">AS{{ result.whois.asn }} — {{ result.whois.asn_name }}</span></div>
-                <div class="kv" v-if="result.whois.network_name"><span class="kv-key">Network</span><span class="kv-val mono">{{ result.whois.network_name }}</span></div>
-                <div class="kv" v-if="result.whois.network_cidr"><span class="kv-key">CIDR</span><span class="kv-val mono">{{ result.whois.network_cidr }}</span></div>
-                <div class="kv" v-if="result.whois.country"><span class="kv-key">Country</span><span class="kv-val mono">{{ result.whois.country }}</span></div>
-                <div class="kv" v-if="result.whois.org"><span class="kv-key">Org</span><span class="kv-val mono">{{ result.whois.org }}</span></div>
-                <!-- Domain fields -->
-                <div class="kv" v-if="result.whois.domain"><span class="kv-key">Domain</span><span class="kv-val mono">{{ result.whois.domain }}</span></div>
-                <div class="kv" v-if="result.whois.registrar"><span class="kv-key">Registrar</span><span class="kv-val mono">{{ result.whois.registrar }}</span></div>
-                <div class="kv" v-if="result.whois.created"><span class="kv-key">Created</span><span class="kv-val mono">{{ formatDate(result.whois.created) }}</span></div>
-                <div class="kv" v-if="result.whois.updated"><span class="kv-key">Updated</span><span class="kv-val mono">{{ formatDate(result.whois.updated) }}</span></div>
-                <div class="kv" v-if="result.whois.expires"><span class="kv-key">Expires</span><span class="kv-val mono">{{ formatDate(result.whois.expires) }}</span></div>
-                <div class="kv" v-if="result.whois.nameservers?.length">
-                  <span class="kv-key">Nameservers</span>
-                  <span class="kv-val mono">{{ result.whois.nameservers.join(', ') }}</span>
-                </div>
-                <div class="kv" v-if="result.whois.status?.length">
-                  <span class="kv-key">Status</span>
-                  <span class="kv-val mono">{{ result.whois.status.join(', ') }}</span>
-                </div>
-                <div class="kv" v-if="result.whois.emails?.length">
-                  <span class="kv-key">Emails</span>
-                  <span class="kv-val mono">{{ result.whois.emails.join(', ') }}</span>
-                </div>
-              </div>
-            </div>
-            <div v-else-if="result.whois && !result.whois.found" class="card section-card not-found">
-              <div class="section-header">
-                <span class="section-icon whois"></span>
-                <span class="section-title">WHOIS / BGP</span>
-                <span class="badge badge-low" style="margin-left:auto">Not found</span>
-              </div>
-            </div>
-
             <!-- Shodan -->
             <div v-if="result.shodan?.found" class="card section-card">
               <div class="section-header">
@@ -278,6 +232,88 @@
               <div class="section-header">
                 <span class="section-icon shodan"></span>
                 <span class="section-title">Shodan</span>
+                <span class="badge badge-low" style="margin-left:auto">Not found</span>
+              </div>
+            </div>
+
+            <!-- Subdomains -->
+            <div v-if="result.summary?.subdomeny?.length" class="card section-card">
+              <div class="section-header">
+                <span class="section-title">Subdomains</span>
+                <span class="badge badge-neutral" style="margin-left:auto">
+                  {{ result.summary.subdomeny.length }}
+                </span>
+              </div>
+              <div class="subdomain-list">
+                <span
+                  v-for="sub in subdomainsVisible"
+                  :key="sub"
+                  class="mono subdomain-item"
+                >{{ sub }}</span>
+              </div>
+              <div class="subdomain-controls" v-if="result.summary.subdomeny.length > 20">
+                <button
+                  v-if="subdomainsLimit < result.summary.subdomeny.length"
+                  class="show-more-btn"
+                  @click="subdomainsLimit += 20"
+                >
+                  Show 20 more
+                  <span class="text-muted">
+                    (left {{ result.summary.subdomeny.length - subdomainsLimit }})
+                  </span>
+                </button>
+                <button
+                  v-if="subdomainsLimit > 20"
+                  class="show-more-btn"
+                  @click="subdomainsLimit = 20"
+                >
+                  Collapse
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right column -->
+          <div class="col-right">
+
+            <!-- WHOIS -->
+            <div v-if="result.whois?.found" class="card section-card">
+              <div class="section-header">
+                <span class="section-icon whois"></span>
+                <span class="section-title">WHOIS{{ result.whois.type === 'ip' ? ' / BGP' : '' }}</span>
+              </div>
+              <div class="kv-grid">
+                <!-- IP fields -->
+                <div class="kv" v-if="result.whois.asn"><span class="kv-key">ASN</span><span class="kv-val mono">AS{{ result.whois.asn }} — {{ result.whois.asn_name }}</span></div>
+                <div class="kv" v-if="result.whois.network_name"><span class="kv-key">Network</span><span class="kv-val mono">{{ result.whois.network_name }}</span></div>
+                <div class="kv" v-if="result.whois.network_cidr"><span class="kv-key">CIDR</span><span class="kv-val mono">{{ result.whois.network_cidr }}</span></div>
+                <div class="kv" v-if="result.whois.country"><span class="kv-key">Country</span><span class="kv-val mono">{{ result.whois.country }}</span></div>
+                <div class="kv" v-if="result.whois.org"><span class="kv-key">Org</span><span class="kv-val mono">{{ result.whois.org }}</span></div>
+                <!-- Domain fields -->
+                <div class="kv" v-if="result.whois.domain"><span class="kv-key">Domain</span><span class="kv-val mono">{{ result.whois.domain }}</span></div>
+                <div class="kv" v-if="result.whois.registrar"><span class="kv-key">Registrar</span><span class="kv-val mono">{{ result.whois.registrar }}</span></div>
+                <div class="kv" v-if="result.whois.created"><span class="kv-key">Created</span><span class="kv-val mono">{{ formatDate(result.whois.created) }}</span></div>
+                <div class="kv" v-if="result.whois.updated"><span class="kv-key">Updated</span><span class="kv-val mono">{{ formatDate(result.whois.updated) }}</span></div>
+                <div class="kv" v-if="result.whois.expires"><span class="kv-key">Expires</span><span class="kv-val mono">{{ formatDate(result.whois.expires) }}</span></div>
+                <div class="kv" v-if="result.whois.nameservers?.length">
+                  <span class="kv-key">Nameservers</span>
+                  <span class="kv-val mono">{{ result.whois.nameservers.join(', ') }}</span>
+                </div>
+                <div class="kv" v-if="result.whois.status?.length">
+                  <span class="kv-key">Status</span>
+                  <span class="kv-val mono">{{ result.whois.status.join(', ') }}</span>
+                </div>
+                <div class="kv" v-if="result.whois.emails?.length">
+                  <span class="kv-key">Emails</span>
+                  <span class="kv-val mono">{{ result.whois.emails.join(', ') }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="result.whois && !result.whois.found" class="card section-card not-found">
+              <div class="section-header">
+                <span class="section-icon whois"></span>
+                <span class="section-title">WHOIS / BGP</span>
                 <span class="badge badge-low" style="margin-left:auto">Not found</span>
               </div>
             </div>
@@ -362,42 +398,6 @@
               </div>
             </div>
 
-            <!-- Subdomains -->
-            <div v-if="result.summary?.subdomeny?.length" class="card section-card">
-              <div class="section-header">
-                <span class="section-title">Subdomains</span>
-                <span class="badge badge-neutral" style="margin-left:auto">
-                  {{ result.summary.subdomeny.length }}
-                </span>
-              </div>
-              <div class="subdomain-list">
-                <span
-                  v-for="sub in subdomainsVisible"
-                  :key="sub"
-                  class="mono subdomain-item"
-                >{{ sub }}</span>
-              </div>
-              <div class="subdomain-controls" v-if="result.summary.subdomeny.length > 20">
-                <button
-                  v-if="subdomainsLimit < result.summary.subdomeny.length"
-                  class="show-more-btn"
-                  @click="subdomainsLimit += 20"
-                >
-                  Show 20 more
-                  <span class="text-muted">
-                    (left {{ result.summary.subdomeny.length - subdomainsLimit }})
-                  </span>
-                </button>
-                <button
-                  v-if="subdomainsLimit > 20"
-                  class="show-more-btn"
-                  @click="subdomainsLimit = 20"
-                >
-                  Collapse
-                </button>
-              </div>
-            </div>
-
             <!-- crt.sh -->
             <div v-if="result.crtsh?.found" class="card section-card">
               <div class="section-header">
@@ -414,9 +414,9 @@
                 </div>
                 <div class="pagination-row">
                   <button v-if="crtshDomainsLimit < result.crtsh.domeny.length" class="show-more-btn" @click="crtshDomainsLimit += 20">
-                    Pokaż kolejne 20 <span class="text-muted">(zostało {{ result.crtsh.domeny.length - crtshDomainsLimit }})</span>
+                    Show 20 more <span class="text-muted">(left {{ result.crtsh.domeny.length - crtshDomainsLimit }})</span>
                   </button>
-                  <button v-if="crtshDomainsLimit > 10" class="show-more-btn" @click="crtshDomainsLimit = 10">Zwiń</button>
+                  <button v-if="crtshDomainsLimit > 10" class="show-more-btn" @click="crtshDomainsLimit = 10">Collapse</button>
                 </div>
               </template>
 
@@ -438,9 +438,9 @@
                 </div>
                 <div class="pagination-row">
                   <button v-if="crtshCertsLimit < result.crtsh.certyfikaty.length" class="show-more-btn" @click="crtshCertsLimit += 10">
-                    Pokaż kolejne 10 <span class="text-muted">(zostało {{ result.crtsh.certyfikaty.length - crtshCertsLimit }})</span>
+                    Show 10 more <span class="text-muted">(left {{ result.crtsh.certyfikaty.length - crtshCertsLimit }})</span>
                   </button>
-                  <button v-if="crtshCertsLimit > 10" class="show-more-btn" @click="crtshCertsLimit = 10">Zwiń</button>
+                  <button v-if="crtshCertsLimit > 10" class="show-more-btn" @click="crtshCertsLimit = 10">Collapse</button>
                 </div>
               </template>
 

@@ -152,11 +152,11 @@ function toggleEnabled(id, checked) {
 
 function handleSave() {
   if (total.value !== 100) {
-    errorMsg.value = `Suma wag musi wynosić 100% (aktualnie: ${total.value}%)`
+    errorMsg.value = `The sum of the weights must be 100% (currently: ${total.value}%)`
     return
   }
   persistConfig(config.value)
-  savedMsg.value = '✓ Zapisano'
+  savedMsg.value = '✓ Saved'
   errorMsg.value = ''
   setTimeout(() => (savedMsg.value = ''), 2000)
 }
@@ -164,7 +164,7 @@ function handleSave() {
 function handleReset() {
   config.value = structuredClone(DEFAULT_CONFIG)
   persistConfig(config.value)
-  savedMsg.value = '✓ Przywrócono'
+  savedMsg.value = '✓ Restored'
   errorMsg.value = ''
   setTimeout(() => (savedMsg.value = ''), 2000)
 }
