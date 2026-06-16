@@ -83,6 +83,7 @@ function handleSearch() {
 
 const sources = [
   { name: 'VirusTotal', color: '#4299e1', desc: 'Multi-engine malware scanning and reputation scoring for IPs, domains, and files.', tags: ['IP', 'Domain', 'Hash'] },
+  { name: 'Shodan', color: '#f6ad55', desc: 'Internet-wide scanner exposing open ports, banners, services, and vulnerabilities on IPs.', tags: ['IP', 'Ports', 'CVE', 'Banners'] },
   { name: 'AbuseIPDB', color: '#e53e3e', desc: 'Community-driven IP abuse reports with categorized threat types and abuse scores.', tags: ['IP', 'Abuse Score'] },
   { name: 'ThreatFox', color: '#dd6b20', desc: 'IOC repository from abuse.ch tracking malware infrastructure and C2 servers.', tags: ['IOC', 'Malware', 'C2'] },
   { name: 'CIRCL', color: '#9f7aea', desc: 'MISP events from CIRCL.lu Computer Incident Response Center Luxembourg.', tags: ['Events', 'MISP'] },
